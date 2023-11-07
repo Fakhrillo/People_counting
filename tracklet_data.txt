@@ -1,0 +1,4 @@
+TrackingStatus: <class 'depthai.Tracklet.TrackingStatus'>
+roi: <depthai.Rect object at 0x7f0c3293a430>
+spatialCoordinates: <depthai.Point3f object at 0x7f0c339adff0>
+srcImgDetection: <depthai.ImgDetection object at 0x7f0c329104b0>
