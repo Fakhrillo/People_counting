@@ -45,6 +45,8 @@ xlinkOut.setStreamName("preview")
 trackerOut.setStreamName("tracklets")
 
 # Properties
+if MxID == "14442C10C1AD3FD700":
+    camRgb.setImageOrientation(dai.CameraImageOrientation.HORIZONTAL_MIRROR)
 camRgb.setPreviewSize(416, 416)
 camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
 camRgb.setInterleaved(False)
