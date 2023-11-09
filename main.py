@@ -26,7 +26,7 @@ labelMap = [
     "teddy bear",     "hair drier", "toothbrush"
 ]
 
-nnPath = str((Path(__file__).parent / Path('model/yolov5_nano_coco.blob')).resolve().absolute())
+nnPath = str((Path(__file__).parent / Path('model/yolov6n_coco_640x640_openvino_2022.1_6shave.blob')).resolve().absolute())
 
 
 
@@ -47,7 +47,7 @@ trackerOut.setStreamName("tracklets")
 # Properties
 if MxID == "14442C10C1AD3FD700":
     camRgb.setImageOrientation(dai.CameraImageOrientation.HORIZONTAL_MIRROR)
-camRgb.setPreviewSize(416, 416)
+camRgb.setPreviewSize(640, 640)
 camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
 camRgb.setInterleaved(False)
 camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
