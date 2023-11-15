@@ -1,51 +1,72 @@
 from pathlib import Path
 import cv2
 import depthai as dai
-import numpy as np
 import time
-import argparse
 
-labelMap = ["person", ""]
+from environs import Env
 
-nnPathDefault = str((Path(__file__).parent / Path('model/yolov5_nano_coco.blob')).resolve().absolute())
-videoPathDefault = str((Path(__file__).parent / Path('test.mp4')).resolve().absolute())
-parser = argparse.ArgumentParser()
-parser.add_argument('-nnPath', help="Path to mobilenet detection network blob", default=nnPathDefault)
-parser.add_argument('-v', '--videoPath', help="Path to video frame", default=videoPathDefault)
+env = Env()
+env.read_env()
 
-args = parser.parse_args()
+MxID = env('MxID')
+# Set your custom ROI coordinates (x, y, width, height)
+custom_roi = (350/640, 250/640, 640/640, 640/640)
+
+
+# tiny yolo v4 label texts
+labelMap = [
+    "person",         "bicycle",    "car",           "motorbike",     "aeroplane",   "bus",           "train",
+    "truck",          "boat",       "traffic light", "fire hydrant",  "stop sign",   "parking meter", "bench",
+    "bird",           "cat",        "dog",           "horse",         "sheep",       "cow",           "elephant",
+    "bear",           "zebra",      "giraffe",       "backpack",      "umbrella",    "handbag",       "tie",
+    "suitcase",       "frisbee",    "skis",          "snowboard",     "sports ball", "kite",          "baseball bat",
+    "baseball glove", "skateboard", "surfboard",     "tennis racket", "bottle",      "wine glass",    "cup",
+    "fork",           "knife",      "spoon",         "bowl",          "banana",      "apple",         "sandwich",
+    "orange",         "broccoli",   "carrot",        "hot dog",       "pizza",       "donut",         "cake",
+    "chair",          "sofa",       "pottedplant",   "bed",           "diningtable", "toilet",        "tvmonitor",
+    "laptop",         "mouse",      "remote",        "keyboard",      "cell phone",  "microwave",     "oven",
+    "toaster",        "sink",       "refrigerator",  "book",          "clock",       "vase",          "scissors",
+    "teddy bear",     "hair drier", "toothbrush"
+]
+
+nnPath = str((Path(__file__).parent / Path('model/yolov6n_coco_640x640_openvino_2022.1_6shave.blob')).resolve().absolute())
 
 # Create pipeline
 pipeline = dai.Pipeline()
 
 # Define sources and outputs
-manip = pipeline.create(dai.node.ImageManip)
-objectTracker = pipeline.create(dai.node.ObjectTracker)
+camRgb = pipeline.create(dai.node.ColorCamera)
 detectionNetwork = pipeline.create(dai.node.YoloDetectionNetwork)
+objectTracker = pipeline.create(dai.node.ObjectTracker)
 
-manipOut = pipeline.create(dai.node.XLinkOut)
-xinFrame = pipeline.create(dai.node.XLinkIn)
-trackerOut = pipeline.create(dai.node.XLinkOut)
 xlinkOut = pipeline.create(dai.node.XLinkOut)
-nnOut = pipeline.create(dai.node.XLinkOut)
+trackerOut = pipeline.create(dai.node.XLinkOut)
 
-manipOut.setStreamName("manip")
-xinFrame.setStreamName("inFrame")
-xlinkOut.setStreamName("trackerFrame")
+xlinkOut.setStreamName("preview")
 trackerOut.setStreamName("tracklets")
-nnOut.setStreamName("nn")
+
+# Creating Manip node
+manip = pipeline.create(dai.node.ImageManip)
+# Setting CropRect for the Region of Interest
+# manip.initialConfig.setCropRect(*custom_roi)
+# Setting Resize for the neural network input size
+manip.initialConfig.setResize(640, 640)
+# Setting maximum output frame size based on the desired output dimensions
+max_output_width = 640
+max_output_height = 640
+max_output_frame_size = 3 * max_output_width * max_output_height # Assuming 3 channels for BGR image
+manip.setMaxOutputFrameSize(max_output_frame_size)
 
 # Properties
-xinFrame.setMaxDataSize(1920*1080*3)
+if MxID == "14442C10C1AD3FD700":
+    camRgb.setImageOrientation(dai.CameraImageOrientation.HORIZONTAL_MIRROR)
+camRgb.setPreviewSize(640, 640)
+camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+camRgb.setInterleaved(False)
+camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
+camRgb.setFps(40)
 
-manip.initialConfig.setResizeThumbnail(416, 416)
-# manip.initialConfig.setResize(384, 384)
-# manip.initialConfig.setKeepAspectRatio(False) #squash the image to not lose FOV
-# The NN model expects BGR input. By default ImageManip output type would be same as input (gray in this case)
-manip.initialConfig.setFrameType(dai.ImgFrame.Type.BGR888p)
-manip.inputImage.setBlocking(True)
-
-# setting node configs
+# Network specific settings
 detectionNetwork.setConfidenceThreshold(0.5)
 detectionNetwork.setNumClasses(80)
 detectionNetwork.setCoordinateSize(4)
@@ -53,90 +74,48 @@ detectionNetwork.setCoordinateSize(4)
 # detectionNetwork.setAnchorMasks({"side26": [1, 2, 3], "side13": [3, 4, 5]})
 detectionNetwork.setAnchors([10,13, 16,30, 33,23, 30,61, 62,45, 59,119, 116,90, 156,198, 373,326]) #YOLOv5 uchun
 detectionNetwork.setAnchorMasks({"side52": [0,1,2], "side26": [3,4,5], "side13": [6,7,8]})
-detectionNetwork.setIouThreshold(0.6)
-detectionNetwork.setBlobPath(nnPathDefault)
+detectionNetwork.setIouThreshold(0.5)
+detectionNetwork.setBlobPath(nnPath)
 detectionNetwork.setNumInferenceThreads(2)
 detectionNetwork.input.setBlocking(False)
 
-objectTracker.inputTrackerFrame.setBlocking(True)
-objectTracker.inputDetectionFrame.setBlocking(True)
-objectTracker.inputDetections.setBlocking(True)
 objectTracker.setDetectionLabelsToTrack([0])  # track only person
 # possible tracking types: ZERO_TERM_COLOR_HISTOGRAM, ZERO_TERM_IMAGELESS, SHORT_TERM_IMAGELESS, SHORT_TERM_KCF
 objectTracker.setTrackerType(dai.TrackerType.ZERO_TERM_COLOR_HISTOGRAM)
 # take the smallest ID when new object is tracked, possible options: SMALLEST_ID, UNIQUE_ID
 objectTracker.setTrackerIdAssignmentPolicy(dai.TrackerIdAssignmentPolicy.SMALLEST_ID)
 
-# Linking
-manip.out.link(manipOut.input)
+#Linking
+# Connecting Manip node to ColorCamera
+camRgb.preview.link(manip.inputImage)
+# Connecting Manip node to YoloDetectionNetwork
 manip.out.link(detectionNetwork.input)
-xinFrame.out.link(manip.inputImage)
-xinFrame.out.link(objectTracker.inputTrackerFrame)
-detectionNetwork.out.link(nnOut.input)
-detectionNetwork.out.link(objectTracker.inputDetections)
-detectionNetwork.passthrough.link(objectTracker.inputDetectionFrame)
-objectTracker.out.link(trackerOut.input)
+# camRgb.preview.link(detectionNetwork.input)
 objectTracker.passthroughTrackerFrame.link(xlinkOut.input)
 
-# Connect and start the pipeline
-with dai.Device(pipeline) as device:
 
-    qIn = device.getInputQueue(name="inFrame")
-    trackerFrameQ = device.getOutputQueue(name="trackerFrame", maxSize=4)
-    tracklets = device.getOutputQueue(name="tracklets", maxSize=4)
-    qManip = device.getOutputQueue(name="manip", maxSize=4)
-    qDet = device.getOutputQueue(name="nn", maxSize=4)
+detectionNetwork.passthrough.link(objectTracker.inputTrackerFrame)
+
+detectionNetwork.passthrough.link(objectTracker.inputDetectionFrame)
+detectionNetwork.out.link(objectTracker.inputDetections)
+objectTracker.out.link(trackerOut.input)
+
+device = dai.DeviceInfo(MxID)
+
+# Connect to device and start pipeline
+with dai.Device(pipeline, device) as device:
+
+    preview = device.getOutputQueue("preview", 4, False)
+    tracklets = device.getOutputQueue("tracklets", 4, False)
 
     startTime = time.monotonic()
     counter = 0
     fps = 0
-    detections = []
     frame = None
 
-    def to_planar(arr: np.ndarray, shape: tuple) -> np.ndarray:
-        return cv2.resize(arr, shape).transpose(2, 0, 1).flatten()
-
-    # nn data, being the bounding box locations, are in <0..1> range - they need to be normalized with frame width/height
-    def frameNorm(frame, bbox):
-        normVals = np.full(len(bbox), frame.shape[0])
-        normVals[::2] = frame.shape[1]
-        return (np.clip(np.array(bbox), 0, 1) * normVals).astype(int)
-
-    def displayFrame(name, frame):
-        for detection in detections:
-            bbox = frameNorm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))
-            cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (255, 0, 0), 2)
-            cv2.putText(frame, labelMap[detection.label], (bbox[0] + 10, bbox[1] + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
-            cv2.putText(frame, f"{int(detection.confidence * 100)}%", (bbox[0] + 10, bbox[1] + 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
-        cv2.imshow(name, frame)
-
-    cap = cv2.VideoCapture(args.videoPath)
-    baseTs = time.monotonic()
-    simulatedFps = 30
-    inputFrameShape = (1920, 1080)
-
-    while cap.isOpened():
-        read_correctly, frame = cap.read()
-        if not read_correctly:
-            break
-
-        img = dai.ImgFrame()
-        img.setType(dai.ImgFrame.Type.BGR888p)
-        img.setData(to_planar(frame, inputFrameShape))
-        img.setTimestamp(baseTs)
-        baseTs += 1/simulatedFps
-
-        img.setWidth(inputFrameShape[0])
-        img.setHeight(inputFrameShape[1])
-        qIn.send(img)
-
-        trackFrame = trackerFrameQ.tryGet()
-        if trackFrame is None:
-            continue
-
+    while(True):
+        imgFrame = preview.get()
         track = tracklets.get()
-        manip = qManip.get()
-        inDet = qDet.get()
 
         counter+=1
         current_time = time.monotonic()
@@ -145,33 +124,33 @@ with dai.Device(pipeline) as device:
             counter = 0
             startTime = current_time
 
-        detections = inDet.detections
-        manipFrame = manip.getCvFrame()
-        displayFrame("nn", manipFrame)
-
         color = (255, 0, 0)
-        trackerFrame = trackFrame.getCvFrame()
+        text_color = (0, 0, 255)
+        rectangle = (111, 147, 26)
+
+        frame = imgFrame.getCvFrame()
         trackletsData = track.tracklets
         for t in trackletsData:
-            roi = t.roi.denormalize(trackerFrame.shape[1], trackerFrame.shape[0])
-            x1 = int(roi.topLeft().x)
-            y1 = int(roi.topLeft().y)
-            x2 = int(roi.bottomRight().x)
-            y2 = int(roi.bottomRight().y)
+            if t.status.name == "TRACKED":
+                roi = t.roi.denormalize(frame.shape[1], frame.shape[0])
+                x1 = int(roi.topLeft().x)
+                y1 = int(roi.topLeft().y)
+                x2 = int(roi.bottomRight().x)
+                y2 = int(roi.bottomRight().y)
 
-            try:
-                label = labelMap[t.label]
-            except:
-                label = t.label
+                try:
+                    label = labelMap[t.label]
+                except:
+                    label = t.label
+                # if t.status.name == 'TRACKED':
+                cv2.putText(frame, str(label), (x1 + 10, y1 + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, text_color)
+                cv2.putText(frame, f"ID: {[t.id]}", (x1 + 10, y1 + 45), cv2.FONT_HERSHEY_TRIPLEX, 0.5, text_color)
+                cv2.putText(frame, t.status.name, (x1 + 10, y1 + 70), cv2.FONT_HERSHEY_TRIPLEX, 0.5, text_color)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), rectangle, cv2.FONT_HERSHEY_SIMPLEX)
 
-            cv2.putText(trackerFrame, str(label), (x1 + 10, y1 + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
-            cv2.putText(trackerFrame, f"ID: {[t.id]}", (x1 + 10, y1 + 35), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
-            cv2.putText(trackerFrame, t.status.name, (x1 + 10, y1 + 50), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
-            cv2.rectangle(trackerFrame, (x1, y1), (x2, y2), color, cv2.FONT_HERSHEY_SIMPLEX)
+        cv2.putText(frame, "FPS: {:.2f}".format(fps), (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.6, text_color)
 
-        cv2.putText(trackerFrame, "Fps: {:.2f}".format(fps), (2, trackerFrame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.4, color)
-
-        cv2.imshow("tracker", trackerFrame)
+        cv2.imshow("tracker", frame)
 
         if cv2.waitKey(1) == ord('q'):
             break

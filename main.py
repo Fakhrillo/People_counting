@@ -9,6 +9,8 @@ env = Env()
 env.read_env()
 
 MxID = env('MxID')
+# Set your custom ROI coordinates (x, y, width, height)
+custom_roi = (350, 250, 640, 640)  # Example coordinates, adjust as needed
 
 # tiny yolo v4 label texts
 labelMap = [
@@ -53,7 +55,6 @@ camRgb.setInterleaved(False)
 camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
 camRgb.setFps(40)
 
-# testing MobileNet DetectionNetwork
 # Network specific settings
 detectionNetwork.setConfidenceThreshold(0.5)
 detectionNetwork.setNumClasses(80)
@@ -73,7 +74,7 @@ objectTracker.setTrackerType(dai.TrackerType.ZERO_TERM_COLOR_HISTOGRAM)
 # take the smallest ID when new object is tracked, possible options: SMALLEST_ID, UNIQUE_ID
 objectTracker.setTrackerIdAssignmentPolicy(dai.TrackerIdAssignmentPolicy.SMALLEST_ID)
 
-# Linking
+#Linking
 camRgb.preview.link(detectionNetwork.input)
 objectTracker.passthroughTrackerFrame.link(xlinkOut.input)
 
@@ -131,11 +132,6 @@ with dai.Device(pipeline, device) as device:
                 cv2.putText(frame, f"ID: {[t.id]}", (x1 + 10, y1 + 45), cv2.FONT_HERSHEY_TRIPLEX, 0.5, text_color)
                 cv2.putText(frame, t.status.name, (x1 + 10, y1 + 70), cv2.FONT_HERSHEY_TRIPLEX, 0.5, text_color)
                 cv2.rectangle(frame, (x1, y1), (x2, y2), rectangle, cv2.FONT_HERSHEY_SIMPLEX)
-
-            # if t.status.name == 'REMOVED':
-            #     print(f'ID: {t.id} X1: {x1}, Y1: {y1}, X2: {x2}, Y2: {y2} STATUS: {t.status.name} !!!!!!!')
-            # else:
-            #     print(f'ID: {t.id} X1: {x1}, Y1: {y1}, X2: {x2}, Y2: {y2} STATUS: {t.status.name}')
 
         cv2.putText(frame, "FPS: {:.2f}".format(fps), (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.6, text_color)
 
