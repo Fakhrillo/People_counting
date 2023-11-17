@@ -39,11 +39,13 @@ camRgb = pipeline.create(dai.node.ColorCamera)
 detectionNetwork = pipeline.create(dai.node.YoloDetectionNetwork)
 objectTracker = pipeline.create(dai.node.ObjectTracker)
 
-xlinkOut = pipeline.create(dai.node.XLinkOut)
+xlinkOut   = pipeline.create(dai.node.XLinkOut)
 trackerOut = pipeline.create(dai.node.XLinkOut)
+fullFrame  = pipeline.create(dai.node.XLinkOut)
 
 xlinkOut.setStreamName("preview")
 trackerOut.setStreamName("tracklets")
+fullFrame.setStreamName("full_frame")
 
 # Creating Manip node
 manip = pipeline.create(dai.node.ImageManip)
@@ -70,9 +72,9 @@ camRgb.setFps(40)
 detectionNetwork.setConfidenceThreshold(0.5)
 detectionNetwork.setNumClasses(80)
 detectionNetwork.setCoordinateSize(4)
-# detectionNetwork.setAnchors([10, 14, 23, 27, 37, 58, 81, 82, 135, 169, 344, 319]) #YOLOv4 uchun
+# detectionNetwork.setAnchors([10, 14, 23, 27, 37, 58, 81, 82, 135, 169, 344, 319]) #for YOLOv4
 # detectionNetwork.setAnchorMasks({"side26": [1, 2, 3], "side13": [3, 4, 5]})
-detectionNetwork.setAnchors([10,13, 16,30, 33,23, 30,61, 62,45, 59,119, 116,90, 156,198, 373,326]) #YOLOv5 uchun
+detectionNetwork.setAnchors([10,13, 16,30, 33,23, 30,61, 62,45, 59,119, 116,90, 156,198, 373,326]) #for YOLOv5
 detectionNetwork.setAnchorMasks({"side52": [0,1,2], "side26": [3,4,5], "side13": [6,7,8]})
 detectionNetwork.setIouThreshold(0.5)
 detectionNetwork.setBlobPath(nnPath)
@@ -88,6 +90,7 @@ objectTracker.setTrackerIdAssignmentPolicy(dai.TrackerIdAssignmentPolicy.SMALLES
 #Linking
 # Connecting Manip node to ColorCamera
 camRgb.preview.link(manip.inputImage)
+camRgb.preview.link(fullFrame.input)
 # Connecting Manip node to YoloDetectionNetwork
 manip.out.link(detectionNetwork.input)
 # camRgb.preview.link(detectionNetwork.input)
@@ -150,6 +153,11 @@ with dai.Device(pipeline, device) as device:
 
         cv2.putText(frame, "FPS: {:.2f}".format(fps), (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.6, text_color)
 
+        # Display full frame
+        full_frame = imgFrame.getCvFrame()
+        cv2.imshow("full_frame", full_frame)
+
+        # Display cropped frame with tracked objects
         cv2.imshow("tracker", frame)
 
         if cv2.waitKey(1) == ord('q'):
