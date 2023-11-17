@@ -50,7 +50,7 @@ fullFrame.setStreamName("full_frame")
 # Creating Manip node
 manip = pipeline.create(dai.node.ImageManip)
 # Setting CropRect for the Region of Interest
-# manip.initialConfig.setCropRect(*custom_roi)
+manip.initialConfig.setCropRect(*custom_roi)
 # Setting Resize for the neural network input size
 manip.initialConfig.setResize(640, 640)
 # Setting maximum output frame size based on the desired output dimensions
@@ -110,6 +110,7 @@ with dai.Device(pipeline, device) as device:
 
     preview = device.getOutputQueue("preview", 4, False)
     tracklets = device.getOutputQueue("tracklets", 4, False)
+    previewFull = device.getOutputQueue("full_frame", 4, False)
 
     startTime = time.monotonic()
     counter = 0
@@ -119,6 +120,7 @@ with dai.Device(pipeline, device) as device:
     while(True):
         imgFrame = preview.get()
         track = tracklets.get()
+        imgFull = previewFull.get()
 
         counter+=1
         current_time = time.monotonic()
@@ -154,8 +156,8 @@ with dai.Device(pipeline, device) as device:
         cv2.putText(frame, "FPS: {:.2f}".format(fps), (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.6, text_color)
 
         # Display full frame
-        full_frame = imgFrame.getCvFrame()
-        cv2.imshow("full_frame", full_frame)
+        frameFull = imgFull.getCvFrame()
+        cv2.imshow("full_frame", frameFull)
 
         # Display cropped frame with tracked objects
         cv2.imshow("tracker", frame)
