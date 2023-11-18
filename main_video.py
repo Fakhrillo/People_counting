@@ -9,48 +9,40 @@ env = Env()
 env.read_env()
 
 MxID = env('MxID')
-# Set your custom ROI coordinates (x, y, width, height)
+# Set custom ROI coordinates (x, y, width, height)
 custom_roi = (350/640, 250/640, 640/640, 640/640)
 
+# Coordinates of the counting line
+line_start = (320, 0)
+line_end = (320, 640)
 
 # tiny yolo v4 label texts
 labelMap = [
-    "person",         "bicycle",    "car",           "motorbike",     "aeroplane",   "bus",           "train",
-    "truck",          "boat",       "traffic light", "fire hydrant",  "stop sign",   "parking meter", "bench",
-    "bird",           "cat",        "dog",           "horse",         "sheep",       "cow",           "elephant",
-    "bear",           "zebra",      "giraffe",       "backpack",      "umbrella",    "handbag",       "tie",
-    "suitcase",       "frisbee",    "skis",          "snowboard",     "sports ball", "kite",          "baseball bat",
-    "baseball glove", "skateboard", "surfboard",     "tennis racket", "bottle",      "wine glass",    "cup",
-    "fork",           "knife",      "spoon",         "bowl",          "banana",      "apple",         "sandwich",
-    "orange",         "broccoli",   "carrot",        "hot dog",       "pizza",       "donut",         "cake",
-    "chair",          "sofa",       "pottedplant",   "bed",           "diningtable", "toilet",        "tvmonitor",
-    "laptop",         "mouse",      "remote",        "keyboard",      "cell phone",  "microwave",     "oven",
-    "toaster",        "sink",       "refrigerator",  "book",          "clock",       "vase",          "scissors",
-    "teddy bear",     "hair drier", "toothbrush"
+    "person",
 ]
 
 nnPath = str((Path(__file__).parent / Path('model/yolov6n_coco_640x640_openvino_2022.1_6shave.blob')).resolve().absolute())
 
-# Create pipeline
+# Creating pipeline
 pipeline = dai.Pipeline()
 
-# Define sources and outputs
+# Sources and outputs
 camRgb = pipeline.create(dai.node.ColorCamera)
 detectionNetwork = pipeline.create(dai.node.YoloDetectionNetwork)
 objectTracker = pipeline.create(dai.node.ObjectTracker)
 
 xlinkOut   = pipeline.create(dai.node.XLinkOut)
 trackerOut = pipeline.create(dai.node.XLinkOut)
-fullFrame  = pipeline.create(dai.node.XLinkOut)
+fullFrame  = pipeline.create(dai.node.XLinkOut) # creating new pipline for full_frame
 
 xlinkOut.setStreamName("preview")
 trackerOut.setStreamName("tracklets")
-fullFrame.setStreamName("full_frame")
+fullFrame.setStreamName("full_frame") # To get Full Frame
 
 # Creating Manip node
 manip = pipeline.create(dai.node.ImageManip)
 # Setting CropRect for the Region of Interest
-manip.initialConfig.setCropRect(*custom_roi)
+# manip.initialConfig.setCropRect(*custom_roi)
 # Setting Resize for the neural network input size
 manip.initialConfig.setResize(640, 640)
 # Setting maximum output frame size based on the desired output dimensions
@@ -85,7 +77,7 @@ objectTracker.setDetectionLabelsToTrack([0])  # track only person
 # possible tracking types: ZERO_TERM_COLOR_HISTOGRAM, ZERO_TERM_IMAGELESS, SHORT_TERM_IMAGELESS, SHORT_TERM_KCF
 objectTracker.setTrackerType(dai.TrackerType.ZERO_TERM_COLOR_HISTOGRAM)
 # take the smallest ID when new object is tracked, possible options: SMALLEST_ID, UNIQUE_ID
-objectTracker.setTrackerIdAssignmentPolicy(dai.TrackerIdAssignmentPolicy.SMALLEST_ID)
+objectTracker.setTrackerIdAssignmentPolicy(dai.TrackerIdAssignmentPolicy.UNIQUE_ID)
 
 #Linking
 # Connecting Manip node to ColorCamera
@@ -105,7 +97,7 @@ objectTracker.out.link(trackerOut.input)
 
 device = dai.DeviceInfo(MxID)
 
-# Connect to device and start pipeline
+# Connecting to device and starting pipeline
 with dai.Device(pipeline, device) as device:
 
     preview = device.getOutputQueue("preview", 4, False)
@@ -116,6 +108,12 @@ with dai.Device(pipeline, device) as device:
     counter = 0
     fps = 0
     frame = None
+
+    h_line = 320
+    pos = {}
+    going_in = 0
+    going_out = 0
+    obj_counter = [0, 0, 0, 0]  # left, right, up, down
 
     while(True):
         imgFrame = preview.get()
@@ -135,6 +133,9 @@ with dai.Device(pipeline, device) as device:
 
         frame = imgFrame.getCvFrame()
         trackletsData = track.tracklets
+        # Draw the counting line on the frame
+        cv2.line(frame, line_start, line_end, (0, 255, 0), 2)
+
         for t in trackletsData:
             if t.status.name == "TRACKED":
                 roi = t.roi.denormalize(frame.shape[1], frame.shape[0])
@@ -143,23 +144,50 @@ with dai.Device(pipeline, device) as device:
                 x2 = int(roi.bottomRight().x)
                 y2 = int(roi.bottomRight().y)
 
+                # Calculate centroid
+                centroid = (int((x2-x1)/2+x1), int((y2-y1)/2+y1))
+
+                # Calculate the buffer zone boundaries
+                right_boundary = h_line + 15
+                left_boundary = h_line - 15
+
+                try:
+                    if not (left_boundary <= centroid[0] <= right_boundary):
+                        pos[t.id] = {
+                            'previous': pos[t.id]['current'],
+                            'current': centroid[0]      }
+                    if pos[t.id]['current'] > right_boundary and pos[t.id]['previous'] < right_boundary:
+
+                        obj_counter[1] += 1 #Right side
+                        going_in += 1
+                    if pos[t.id]['current'] < left_boundary and pos[t.id]['previous'] > left_boundary:
+                        
+                        obj_counter[0] += 1 #Left side
+                        going_out += 1
+                except:
+                    pos[t.id] = {'current': centroid[0]}
+
+
                 try:
                     label = labelMap[t.label]
                 except:
                     label = t.label
-                # if t.status.name == 'TRACKED':
+
                 cv2.putText(frame, str(label), (x1 + 10, y1 + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, text_color)
                 cv2.putText(frame, f"ID: {[t.id]}", (x1 + 10, y1 + 45), cv2.FONT_HERSHEY_TRIPLEX, 0.5, text_color)
                 cv2.putText(frame, t.status.name, (x1 + 10, y1 + 70), cv2.FONT_HERSHEY_TRIPLEX, 0.5, text_color)
                 cv2.rectangle(frame, (x1, y1), (x2, y2), rectangle, cv2.FONT_HERSHEY_SIMPLEX)
+                cv2.circle(frame, (centroid[0], centroid[1]), 4, (255, 255, 255), -1)
+        
 
+        cv2.putText(frame, f'Left: {obj_counter[0]}; Right: {obj_counter[1]}', (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0xFF), 2, cv2.FONT_HERSHEY_SIMPLEX)
         cv2.putText(frame, "FPS: {:.2f}".format(fps), (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.6, text_color)
 
-        # Display full frame
+        # Displaying full frame
         frameFull = imgFull.getCvFrame()
         cv2.imshow("full_frame", frameFull)
 
-        # Display cropped frame with tracked objects
+        # Displaying cropped frame with tracked objects
         cv2.imshow("tracker", frame)
 
         if cv2.waitKey(1) == ord('q'):
