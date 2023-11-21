@@ -2,19 +2,20 @@ from pathlib import Path
 import cv2
 import depthai as dai
 import time
-
+import requests
 from environs import Env
 
 env = Env()
 env.read_env()
 
 MxID = env('MxID')
+API = env('API')
 # Set custom ROI coordinates (x, y, width, height)
 custom_roi = (350/640, 250/640, 640/640, 640/640)
 
 # Coordinates of the counting line
-line_start = (320, 0)
-line_end = (320, 640)
+line_start = (0, 280)
+line_end = (640, 280)
 
 # tiny yolo v4 label texts
 labelMap = [
@@ -109,11 +110,32 @@ with dai.Device(pipeline, device) as device:
     fps = 0
     frame = None
 
-    h_line = 320
+    def send_to_api(MxID, going_in, going_out):
+        api_url = f'{API}/camera/result/'
+        data = {
+                'mxid': MxID,
+                'incoming': going_in,
+                'outgoing': going_out,}
+        try:
+            # Send data to the API
+            headers = {'Content-Type': 'application/json'}
+            response = requests.post(api_url, json=data, headers=headers)
+            # Check if data was sent successfully
+            if response.status_code == 200 or response.status_code == 201:
+                return 200
+            else:
+                return response.status_code
+        except Exception as e:
+            return e
+
+    h_line = 280
     pos = {}
     going_in = 0
     going_out = 0
     obj_counter = [0, 0, 0, 0]  # left, right, up, down
+    image_saved = False
+    frame_count = 0
+    last_print_time = 0
 
     while(True):
         imgFrame = preview.get()
@@ -133,6 +155,23 @@ with dai.Device(pipeline, device) as device:
 
         frame = imgFrame.getCvFrame()
         trackletsData = track.tracklets
+
+         # Send the image to the API after processing a certain number of frames
+        if not image_saved and frame_count >= 25:
+            api_url = f"{API}/camera/photo/{MxID}"
+            _, img_encoded = cv2.imencode('.jpg', frame)  # Encode the image as JPEG
+            response = requests.post(api_url, files={'image': (f'{MxID}.jpg', img_encoded.tobytes(), 'image/jpeg')})
+
+            # Check the response from the API
+            if response.status_code == 200:
+                print('Image sent successfully')
+                image_saved = True
+            else:
+                print('Error sending image to the API, status:', response.status_code)
+
+        if frame_count <= 30:
+            frame_count += 1
+
         # Draw the counting line on the frame
         cv2.line(frame, line_start, line_end, (0, 255, 0), 2)
 
@@ -152,20 +191,20 @@ with dai.Device(pipeline, device) as device:
                 left_boundary = h_line - 15
 
                 try:
-                    if not (left_boundary <= centroid[0] <= right_boundary):
+                    if not (left_boundary <= centroid[1] <= right_boundary):
                         pos[t.id] = {
                             'previous': pos[t.id]['current'],
-                            'current': centroid[0]      }
+                            'current': centroid[1]      }
                     if pos[t.id]['current'] > right_boundary and pos[t.id]['previous'] < right_boundary:
 
                         obj_counter[1] += 1 #Right side
-                        going_in += 1
+                        going_out += 1
                     if pos[t.id]['current'] < left_boundary and pos[t.id]['previous'] > left_boundary:
                         
                         obj_counter[0] += 1 #Left side
-                        going_out += 1
+                        going_in += 1
                 except:
-                    pos[t.id] = {'current': centroid[0]}
+                    pos[t.id] = {'current': centroid[1]}
 
 
                 try:
@@ -179,6 +218,16 @@ with dai.Device(pipeline, device) as device:
                 cv2.rectangle(frame, (x1, y1), (x2, y2), rectangle, cv2.FONT_HERSHEY_SIMPLEX)
                 cv2.circle(frame, (centroid[0], centroid[1]), 4, (255, 255, 255), -1)
         
+        current_time = time.time()
+        if current_time - last_print_time >= 300:
+            last_print_time = current_time
+            result = send_to_api(MxID, going_in, going_out)
+            if result == 200:
+                print(f'Data sent successfully, status: {result},  {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}', )
+                going_in = 0
+                going_out = 0
+            else:
+                print(f'Error sending data to the API, status: {result}')
 
         cv2.putText(frame, f'Left: {obj_counter[0]}; Right: {obj_counter[1]}', (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0xFF), 2, cv2.FONT_HERSHEY_SIMPLEX)
         cv2.putText(frame, "FPS: {:.2f}".format(fps), (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.6, text_color)
