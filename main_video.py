@@ -34,11 +34,11 @@ objectTracker = pipeline.create(dai.node.ObjectTracker)
 
 xlinkOut   = pipeline.create(dai.node.XLinkOut)
 trackerOut = pipeline.create(dai.node.XLinkOut)
-fullFrame  = pipeline.create(dai.node.XLinkOut) # creating new pipline for full_frame
+# fullFrame  = pipeline.create(dai.node.XLinkOut) # creating new pipline for full_frame
 
 xlinkOut.setStreamName("preview")
 trackerOut.setStreamName("tracklets")
-fullFrame.setStreamName("full_frame") # To get Full Frame
+# fullFrame.setStreamName("full_frame") # To get Full Frame
 
 # Creating Manip node
 manip = pipeline.create(dai.node.ImageManip)
@@ -83,7 +83,7 @@ objectTracker.setTrackerIdAssignmentPolicy(dai.TrackerIdAssignmentPolicy.UNIQUE_
 #Linking
 # Connecting Manip node to ColorCamera
 camRgb.preview.link(manip.inputImage)
-camRgb.preview.link(fullFrame.input)
+# camRgb.preview.link(fullFrame.input)
 # Connecting Manip node to YoloDetectionNetwork
 manip.out.link(detectionNetwork.input)
 # camRgb.preview.link(detectionNetwork.input)
@@ -103,7 +103,7 @@ with dai.Device(pipeline, device) as device:
 
     preview = device.getOutputQueue("preview", 4, False)
     tracklets = device.getOutputQueue("tracklets", 4, False)
-    previewFull = device.getOutputQueue("full_frame", 4, False)
+    # previewFull = device.getOutputQueue("full_frame", 4, False)
 
     startTime = time.monotonic()
     counter = 0
@@ -140,7 +140,7 @@ with dai.Device(pipeline, device) as device:
     while(True):
         imgFrame = preview.get()
         track = tracklets.get()
-        imgFull = previewFull.get()
+        # imgFull = previewFull.get()
 
         counter+=1
         current_time = time.monotonic()
@@ -233,8 +233,8 @@ with dai.Device(pipeline, device) as device:
         cv2.putText(frame, "FPS: {:.2f}".format(fps), (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.6, text_color)
 
         # Displaying full frame
-        frameFull = imgFull.getCvFrame()
-        cv2.imshow("full_frame", frameFull)
+        # frameFull = imgFull.getCvFrame()
+        # cv2.imshow("full_frame", frameFull)
 
         # Displaying cropped frame with tracked objects
         cv2.imshow("tracker", frame)
