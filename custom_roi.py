@@ -4,23 +4,19 @@ import depthai as dai
 import time
 import requests
 from environs import Env
+import numpy as np
 
 env = Env()
 env.read_env()
 
 MxID = env('MxID')
-API = env('API')
+IP = env('IP')
+# API = env('API')
 # Set custom ROI coordinates (x, y, width, height)
 custom_roi = (350/640, 250/640, 640/640, 640/640)
 
-# Coordinates of the counting line
-line_start = (0, 280)
-line_end = (640, 280)
-
 # tiny yolo v4 label texts
-labelMap = [
-    "person",
-]
+labelMap = ["person",]
 
 nnPath = str((Path(__file__).parent / Path('model/yolov6n_coco_640x640_openvino_2022.1_6shave.blob')).resolve().absolute())
 
@@ -43,7 +39,7 @@ trackerOut.setStreamName("tracklets")
 # Creating Manip node
 manip = pipeline.create(dai.node.ImageManip)
 # Setting CropRect for the Region of Interest
-# manip.initialConfig.setCropRect(*custom_roi)
+manip.initialConfig.setCropRect(*custom_roi)
 # Setting Resize for the neural network input size
 manip.initialConfig.setResize(640, 640)
 # Setting maximum output frame size based on the desired output dimensions
@@ -89,7 +85,6 @@ manip.out.link(detectionNetwork.input)
 # camRgb.preview.link(detectionNetwork.input)
 objectTracker.passthroughTrackerFrame.link(xlinkOut.input)
 
-
 detectionNetwork.passthrough.link(objectTracker.inputTrackerFrame)
 
 detectionNetwork.passthrough.link(objectTracker.inputDetectionFrame)
@@ -97,6 +92,9 @@ detectionNetwork.out.link(objectTracker.inputDetections)
 objectTracker.out.link(trackerOut.input)
 
 device = dai.DeviceInfo(MxID)
+# device = dai.DeviceInfo(IP)
+
+print(device)
 
 # Connecting to device and starting pipeline
 with dai.Device(pipeline, device) as device:
@@ -109,24 +107,6 @@ with dai.Device(pipeline, device) as device:
     counter = 0
     fps = 0
     frame = None
-
-    def send_to_api(MxID, going_in, going_out):
-        api_url = f'{API}/camera/result/'
-        data = {
-                'mxid': MxID,
-                'incoming': going_in,
-                'outgoing': going_out,}
-        try:
-            # Send data to the API
-            headers = {'Content-Type': 'application/json'}
-            response = requests.post(api_url, json=data, headers=headers)
-            # Check if data was sent successfully
-            if response.status_code == 200 or response.status_code == 201:
-                return 200
-            else:
-                return response.status_code
-        except Exception as e:
-            return e
 
     h_line = 280
     pos = {}
@@ -156,25 +136,6 @@ with dai.Device(pipeline, device) as device:
         frame = imgFrame.getCvFrame()
         trackletsData = track.tracklets
 
-         # Send the image to the API after processing a certain number of frames
-        if not image_saved and frame_count >= 25:
-            api_url = f"{API}/camera/photo/{MxID}"
-            _, img_encoded = cv2.imencode('.jpg', frame)  # Encode the image as JPEG
-            response = requests.post(api_url, files={'image': (f'{MxID}.jpg', img_encoded.tobytes(), 'image/jpeg')})
-
-            # Check the response from the API
-            if response.status_code == 200:
-                print('Image sent successfully')
-                image_saved = True
-            else:
-                print('Error sending image to the API, status:', response.status_code)
-
-        if frame_count <= 30:
-            frame_count += 1
-
-        # Draw the counting line on the frame
-        cv2.line(frame, line_start, line_end, (0, 255, 0), 2)
-
         for t in trackletsData:
             if t.status.name == "TRACKED":
                 roi = t.roi.denormalize(frame.shape[1], frame.shape[0])
@@ -187,8 +148,8 @@ with dai.Device(pipeline, device) as device:
                 centroid = (int((x2-x1)/2+x1), int((y2-y1)/2+y1))
 
                 # Calculate the buffer zone boundaries
-                right_boundary = h_line + 15
-                left_boundary = h_line - 15
+                right_boundary = h_line + 25
+                left_boundary = h_line - 25
 
                 try:
                     if not (left_boundary <= centroid[1] <= right_boundary):
@@ -218,17 +179,6 @@ with dai.Device(pipeline, device) as device:
                 cv2.rectangle(frame, (x1, y1), (x2, y2), rectangle, cv2.FONT_HERSHEY_SIMPLEX)
                 cv2.circle(frame, (centroid[0], centroid[1]), 4, (255, 255, 255), -1)
         
-        current_time = time.time()
-        if current_time - last_print_time >= 300:
-            last_print_time = current_time
-            result = send_to_api(MxID, going_in, going_out)
-            if result == 200:
-                print(f'Data sent successfully, status: {result},  {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}', )
-                going_in = 0
-                going_out = 0
-            else:
-                print(f'Error sending data to the API, status: {result}')
-
         cv2.putText(frame, f'Left: {obj_counter[0]}; Right: {obj_counter[1]}', (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0xFF), 2, cv2.FONT_HERSHEY_SIMPLEX)
         cv2.putText(frame, "FPS: {:.2f}".format(fps), (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.6, text_color)
 

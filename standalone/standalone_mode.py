@@ -147,7 +147,8 @@ while(True):
                 if t.status != Tracklet.TrackingStatus.LOST and t.status != Tracklet.TrackingStatus.REMOVED:
                     text = "ID {}".format(t.id)
                  
-                    data_to_send.append([text, centroid[0], centroid[1], label, coordinates, obj_counter, fps])
+                    # data_to_send.append([text, centroid[0], centroid[1], label, coordinates, obj_counter, fps])
+                    data_to_send.append([text, centroid[0], centroid[1]])
             
             # now to send data we need to encode it (whole header is 256 characters long)
             header = f"ABCDE " + str(ts.total_seconds()).ljust(18) + str(len(data)).ljust(8) + str(counter).ljust(16) + str(data_to_send).ljust(208) 
