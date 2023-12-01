@@ -8,6 +8,7 @@ import numpy as np
 
 from count import counting_people
 from draw_line import drawline
+from http_streaming import server_HTTP
 
 env = Env()
 env.read_env()
@@ -273,6 +274,7 @@ with dai.Device(pipeline, device) as device:
 
         # Displaying cropped frame with tracked objects
         cv2.imshow("tracker", frame)
+        server_HTTP.frametosend = frame
 
         if cv2.waitKey(1) == ord('q'):
             break
