@@ -17,7 +17,7 @@ IP = env('IP')
 # API = env('API')
 
 # door = ['bottom', 'top', 'left', 'right']
-door = "bottom"
+door = "top"
 
 # Coordinates of the counting line
 # First camera, above window
@@ -31,15 +31,25 @@ door = "bottom"
 # C_end = (150, 400)
 
 # Second camera, above door
-A_start = (130, 300)
-A_end = (130, 500)
+# #BOTTOM 
+# A_start = (130, 300)
+# A_end = (130, 500)
 
-B_start = (550, 300)
-B_end = (550, 500)
+# B_start = (550, 300)
+# B_end = (550, 500)
+
+# C_start = (130, 300)
+# C_end = (550, 300)
+
+# #TOP
+A_start = (130, 60)
+A_end = (130, 300)
+
+B_start = (550, 60)
+B_end = (550, 300)
 
 C_start = (130, 300)
 C_end = (550, 300)
-
 
 # tiny yolo v4 label texts
 labelMap = ["person",]
@@ -179,14 +189,22 @@ with dai.Device(pipeline, device) as device:
         cv2.line(frame, B_start, B_end, (0, 255, 0), 3)
         cv2.line(frame, C_start, C_end, (255, 0, 0), 3)
 
-        drawline(frame, (155, 500), (155, 300), text_color, 2, 'line')
-        drawline(frame, (105, 500), (105, 250), text_color, 2, 'line')
-        
-        drawline(frame, (575, 500), (575, 250), text_color, 2, 'line')
-        drawline(frame, (525, 500), (525, 300), text_color, 2, 'line')
-        
-        drawline(frame, (500, 325), (130, 325), text_color, 2, 'line')
-        drawline(frame, (550, 275), (115, 275), text_color, 2, 'line')
+        # Calculate the buffer zone boundaries
+        A_right_boundary = A_start[0] + 25
+        A_left_boundary = A_start[0] - 25
+        A_max = A_end[1]
+        A_min = A_start[1]
+
+        B_right_boundary = B_start[0] +25
+        B_left_boundary = B_start[0] - 25
+        B_max = B_end[1]
+        B_min = B_start[1]
+
+
+        C_right_boundary = C_start[1] + 25
+        C_left_boundary = C_start[1] - 25
+        C_max = C_end[0]
+        C_min = C_start[0]
 
         for t in trackletsData:
             if t.status.name == "TRACKED":
@@ -198,23 +216,6 @@ with dai.Device(pipeline, device) as device:
 
                 # Calculate centroid
                 centroid = (int((x2-x1)/2+x1), int((y2-y1)/2+y1))
-
-                # Calculate the buffer zone boundaries
-                A_right_boundary = A_start[0] + 25
-                A_left_boundary = A_start[0] - 25
-                A_max = A_end[1]
-                A_min = A_start[1]
-
-                B_right_boundary = B_start[0] +25
-                B_left_boundary = B_start[0] - 25
-                B_max = B_end[1]
-                B_min = B_start[1]
-
-
-                C_right_boundary = C_start[1] + 25
-                C_left_boundary = C_start[1] - 25
-                C_max = C_end[0]
-                C_min = C_start[0]
 
                 try:
                     # if door == "bottom":
@@ -236,7 +237,6 @@ with dai.Device(pipeline, device) as device:
                 except:
                     pos[t.id] = {'current': centroid[1]}
 
-
                 try:
                     label = labelMap[t.label]
                 except:
@@ -248,6 +248,15 @@ with dai.Device(pipeline, device) as device:
                 cv2.rectangle(frame, (x1, y1), (x2, y2), rectangle, cv2.FONT_HERSHEY_SIMPLEX)
                 cv2.circle(frame, (centroid[0], centroid[1]), 4, (255, 255, 255), -1)
         
+        drawline(frame, (A_right_boundary, A_start[1]), (A_right_boundary, A_end[1]), text_color, 2, 'line')
+        drawline(frame, (A_left_boundary, A_start[1]), (A_left_boundary, A_end[1]), text_color, 2, 'line')
+        
+        drawline(frame, (B_right_boundary, B_start[1]), (B_right_boundary, B_end[1]), text_color, 2, 'line')
+        drawline(frame, (B_left_boundary, B_start[1]), (B_left_boundary, B_end[1]), text_color, 2, 'line')
+        
+        drawline(frame, (C_start[0], C_right_boundary), (C_end[0], C_right_boundary), text_color, 2, 'line')
+        drawline(frame, (C_start[0], C_left_boundary), (C_end[0], C_left_boundary), text_color, 2, 'line')
+
         # current_time = time.time()
         # if current_time - last_print_time >= 300:
         #     last_print_time = current_time
