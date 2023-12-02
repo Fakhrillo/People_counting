@@ -18,7 +18,7 @@ IP = env('IP')
 # API = env('API')
 
 # door = ['bottom', 'top', 'left', 'right']
-door = "top"
+door = "bottom"
 
 # Coordinates of the counting line
 # First camera, above window
@@ -30,6 +30,15 @@ door = "top"
 
 # C_start = (400, 400)
 # C_end = (150, 400)
+
+A_start = (130, 300)
+A_end = (130, 500)
+
+B_start = (550, 300)
+B_end = (550, 500)
+
+C_start = (130, 300)
+C_end = (550, 300)
 
 # Second camera, above door
 # #BOTTOM 
@@ -43,14 +52,14 @@ door = "top"
 # C_end = (550, 300)
 
 # #TOP
-A_start = (130, 60)
-A_end = (130, 300)
+# A_start = (130, 60)
+# A_end = (130, 300)
 
-B_start = (550, 60)
-B_end = (550, 300)
+# B_start = (550, 60)
+# B_end = (550, 300)
 
-C_start = (130, 300)
-C_end = (550, 300)
+# C_start = (130, 300)
+# C_end = (550, 300)
 
 # tiny yolo v4 label texts
 labelMap = ["person",]
