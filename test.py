@@ -7,3 +7,4 @@ or pos[t.id]['current'] < A_left_boundary < pos[t.id]['previous'] and A_max > ce
 or pos[t.id]['current'] > A_right_boundary > pos[t.id]['previous'] and A_max > centroid[1] > A_min or pos[t.id]['current'] < B_right_boundary < pos[t.id]['previous'] and B_max > centroid[1] > B_min
 
 or pos[t.id]['current'] < A_left_boundary < pos[t.id]['previous'] and A_max > centroid[1] > A_min or pos[t.id]['current'] > B_left_boundary > pos[t.id]['previous'] and B_max > centroid[1] > B_min
+

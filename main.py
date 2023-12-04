@@ -34,11 +34,11 @@ door = "bottom"
 A_start = (130, 300)
 A_end = (130, 500)
 
-B_start = (550, 300)
-B_end = (550, 500)
+B_start = (450, 300)
+B_end = (450, 500)
 
 C_start = (130, 300)
-C_end = (550, 300)
+C_end = (450, 300)
 
 # Second camera, above door
 # #BOTTOM 
@@ -245,7 +245,7 @@ with dai.Device(pipeline, device) as device:
 
                     counting_people(door, centroid, pos, t, obj_counter, C_left_boundary, C_right_boundary, C_min, C_max, A_left_boundary, A_right_boundary, A_min, A_max, B_left_boundary, B_right_boundary, B_min, B_max)    
                 except:
-                    pos[t.id] = {'current': centroid[1]}
+                    pos[t.id] = {'current': centroid}
 
                 try:
                     label = labelMap[t.label]
