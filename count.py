@@ -42,12 +42,12 @@ def counting_people(door, centroid, pos, t, obj_counter, C_left_boundary, C_righ
                 going_in += 1
 
         elif door == "left":
-            if pos[t.id]['current'][0] > C_right_boundary > pos[t.id]['previous'][0] and C_max > centroid[1] > C_min or pos[t.id]['current'][1] > A_right_boundary > pos[t.id]['previous'][1] and A_max > centroid[0] > A_min or pos[t.id]['current'][1] < B_right_boundary < pos[t.id]['previous'][1] and B_max > centroid[0] > B_min:
+            if pos[t.id]['current'][0] > C_right_boundary > pos[t.id]['previous'][0] and C_max > centroid[1] > C_min or pos[t.id]['current'][1] < A_right_boundary < pos[t.id]['previous'][1] and A_max > centroid[0] > A_min or pos[t.id]['current'][1] > B_right_boundary > pos[t.id]['previous'][1] and B_max > centroid[0] > B_min:
 
                 obj_counter[0] += 1 #Right side
                 going_in += 1
 
-            if pos[t.id]['current'][0] < C_left_boundary < pos[t.id]['previous'][0] and C_max > centroid[1] > C_min or pos[t.id]['current'][0] < A_left_boundary < pos[t.id]['previous'][1] and A_max > centroid[0] > A_min or pos[t.id]['current'][1] > B_left_boundary > pos[t.id]['previous'][1] and B_max > centroid[0] > B_min:
+            if pos[t.id]['current'][0] < C_left_boundary < pos[t.id]['previous'][0] and C_max > centroid[1] > C_min or pos[t.id]['current'][1] > A_left_boundary > pos[t.id]['previous'][1] and A_max > centroid[0] > A_min or pos[t.id]['current'][1] < B_left_boundary < pos[t.id]['previous'][1] and B_max > centroid[0] > B_min:
                 
                 obj_counter[1] += 1 #Left side
                 going_out += 1
