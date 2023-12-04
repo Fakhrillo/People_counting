@@ -26,7 +26,7 @@ def counting_people(door, centroid, pos, t, obj_counter, C_left_boundary, C_righ
                 obj_counter[1] += 1 #Left side
                 going_out += 1
 
-    elif door in['right', 'left']:
+    else:
         if not (C_left_boundary <= centroid[0] <= C_right_boundary and C_min <= centroid[0] <= C_max or A_left_boundary <= centroid[1] <= A_right_boundary and A_min <= centroid[1] <= A_max or B_left_boundary <= centroid[1] <= B_left_boundary and B_min <= centroid[1] <= B_max):
             pos[t.id] = {
                 'previous': pos[t.id]['current'],

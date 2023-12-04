@@ -210,21 +210,41 @@ with dai.Device(pipeline, device) as device:
         cv2.line(frame, C_start, C_end, (255, 0, 0), 3)
 
         # Calculate the buffer zone boundaries
-        A_right_boundary = A_start[0] + 25
-        A_left_boundary = A_start[0] - 25
-        A_max = A_end[1]
-        A_min = A_start[1]
+        if door in ["top", "bottom"]:
+            A_right_boundary = A_start[0] + 25
+            A_left_boundary = A_start[0] - 25
+            A_max = A_end[1]
+            A_min = A_start[1]
 
-        B_right_boundary = B_start[0] +25
-        B_left_boundary = B_start[0] - 25
-        B_max = B_end[1]
-        B_min = B_start[1]
+            B_right_boundary = B_start[0] +25
+            B_left_boundary = B_start[0] - 25
+            B_max = B_end[1]
+            B_min = B_start[1]
 
 
-        C_right_boundary = C_start[1] + 25
-        C_left_boundary = C_start[1] - 25
-        C_max = C_end[0]
-        C_min = C_start[0]
+            C_right_boundary = C_start[1] + 25
+            C_left_boundary = C_start[1] - 25
+            C_max = C_end[0]
+            C_min = C_start[0]
+        elif door in['right', 'left']:
+            A_right_boundary = A_start[1] + 25
+            A_left_boundary = A_start[1] - 25
+            A_max = A_end[0]
+            A_min = A_start[0]
+
+            B_right_boundary = B_start[1] +25
+            B_left_boundary = B_start[1] - 25
+            B_max = B_end[0]
+            B_min = B_start[0]
+
+
+            C_right_boundary = C_start[0] + 25
+            C_left_boundary = C_start[0] - 25
+            C_max = C_end[1]
+            C_min = C_start[1]
+
+        else:
+            print("Door orientation is not supported!")
 
         for t in trackletsData:
             if t.status.name == "TRACKED":
