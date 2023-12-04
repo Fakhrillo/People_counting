@@ -18,7 +18,7 @@ IP = env('IP')
 # API = env('API')
 
 # door = ['bottom', 'top', 'left', 'right']
-door = "right"
+door = "left"
 
 # Coordinates of the counting line
 # First camera, above window
@@ -41,14 +41,24 @@ door = "right"
 # C_end = (450, 300)
 
 # #Right
-A_start = (350, 200)
-A_end = (640, 200)
+# A_start = (350, 200)
+# A_end = (640, 200)
 
-B_start = (350, 500)
-B_end = (640, 500)
+# B_start = (350, 500)
+# B_end = (640, 500)
 
-C_start = (350, 200)
-C_end = (350, 500)
+# C_start = (350, 200)
+# C_end = (350, 500)
+
+# #LEFT
+A_start = (250, 200)
+A_end = (400, 200)
+
+B_start = (250, 500)
+B_end = (400, 500)
+
+C_start = (450, 200)
+C_end = (450, 500)
 
 # Second camera, above door
 # #BOTTOM 
@@ -288,14 +298,14 @@ with dai.Device(pipeline, device) as device:
                 cv2.rectangle(frame, (x1, y1), (x2, y2), rectangle, cv2.FONT_HERSHEY_SIMPLEX)
                 cv2.circle(frame, (centroid[0], centroid[1]), 4, (255, 255, 255), -1)
         
-        drawline(frame, (A_right_boundary, A_start[1]), (A_right_boundary, A_end[1]), text_color, 2, 'line')
-        drawline(frame, (A_left_boundary, A_start[1]), (A_left_boundary, A_end[1]), text_color, 2, 'line')
+        # drawline(frame, (A_right_boundary, A_start[0]), (A_right_boundary, A_end[0]), text_color, 2, 'line')
+        # drawline(frame, (A_left_boundary, A_start[0]), (A_left_boundary, A_end[0]), text_color, 2, 'line')
         
-        drawline(frame, (B_right_boundary, B_start[1]), (B_right_boundary, B_end[1]), text_color, 2, 'line')
-        drawline(frame, (B_left_boundary, B_start[1]), (B_left_boundary, B_end[1]), text_color, 2, 'line')
+        # drawline(frame, (B_right_boundary, B_start[0]), (B_right_boundary, B_end[0]), text_color, 2, 'line')
+        # drawline(frame, (B_left_boundary, B_start[0]), (B_left_boundary, B_end[0]), text_color, 2, 'line')
         
-        drawline(frame, (C_start[0], C_right_boundary), (C_end[0], C_right_boundary), text_color, 2, 'line')
-        drawline(frame, (C_start[0], C_left_boundary), (C_end[0], C_left_boundary), text_color, 2, 'line')
+        # drawline(frame, (C_start[1], C_right_boundary), (C_end[1], C_right_boundary), text_color, 2, 'line')
+        # drawline(frame, (C_start[1], C_left_boundary), (C_end[1], C_left_boundary), text_color, 2, 'line')
 
         # current_time = time.time()
         # if current_time - last_print_time >= 300:
