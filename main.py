@@ -18,7 +18,7 @@ IP = env('IP')
 # API = env('API')
 
 # door = ['bottom', 'top', 'left', 'right']
-door = "bottom"
+door = "right"
 
 # Coordinates of the counting line
 # First camera, above window
@@ -31,14 +31,24 @@ door = "bottom"
 # C_start = (400, 400)
 # C_end = (150, 400)
 
-A_start = (130, 300)
-A_end = (130, 500)
+# A_start = (130, 300)
+# A_end = (130, 500)
 
-B_start = (450, 300)
-B_end = (450, 500)
+# B_start = (450, 300)
+# B_end = (450, 500)
 
-C_start = (130, 300)
-C_end = (450, 300)
+# C_start = (130, 300)
+# C_end = (450, 300)
+
+# #Right
+A_start = (350, 200)
+A_end = (640, 200)
+
+B_start = (350, 500)
+B_end = (640, 500)
+
+C_start = (350, 200)
+C_end = (350, 500)
 
 # Second camera, above door
 # #BOTTOM 
