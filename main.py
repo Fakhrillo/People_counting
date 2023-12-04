@@ -84,7 +84,8 @@ C_end = (350, 500)
 # tiny yolo v4 label texts
 labelMap = ["person",]
 
-nnPath = str((Path(__file__).parent / Path('model/yolov6n_coco_640x640_openvino_2022.1_6shave.blob')).resolve().absolute())
+# nnPath = str((Path(__file__).parent / Path('model/yolov6n_coco_640x640_openvino_2022.1_6shave.blob')).resolve().absolute())
+nnPath = str((Path(__file__).parent / Path('model/yolov6_head_openvino_2022.1_6shave.blob')).resolve().absolute())
 
 # Creating pipeline
 pipeline = dai.Pipeline()
@@ -111,7 +112,7 @@ camRgb.setFps(40)
 
 # Network specific settings
 detectionNetwork.setConfidenceThreshold(0.5)
-detectionNetwork.setNumClasses(80)
+detectionNetwork.setNumClasses(1)
 detectionNetwork.setCoordinateSize(4)
 # detectionNetwork.setAnchors([10, 14, 23, 27, 37, 58, 81, 82, 135, 169, 344, 319]) #for YOLOv4
 # detectionNetwork.setAnchorMasks({"side26": [1, 2, 3], "side13": [3, 4, 5]})
