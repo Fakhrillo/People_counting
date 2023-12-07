@@ -24,3 +24,14 @@ def drawline(img,pt1,pt2,color,thickness=1.5,style='dotted',gap=20):
             if i%2==1:
                 cv2.line(img,s,e,color,thickness)
             i+=1
+
+
+
+# drawline(frame, (A_right_boundary, A_start[0]), (A_right_boundary, A_end[0]), text_color, 2, 'line')
+# drawline(frame, (A_left_boundary, A_start[0]), (A_left_boundary, A_end[0]), text_color, 2, 'line')
+
+# drawline(frame, (B_right_boundary, B_start[0]), (B_right_boundary, B_end[0]), text_color, 2, 'line')
+# drawline(frame, (B_left_boundary, B_start[0]), (B_left_boundary, B_end[0]), text_color, 2, 'line')
+
+# drawline(frame, (C_start[1], C_right_boundary), (C_end[1], C_right_boundary), text_color, 2, 'line')
+# drawline(frame, (C_start[1], C_left_boundary), (C_end[1], C_left_boundary), text_color, 2, 'line')
