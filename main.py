@@ -114,8 +114,7 @@ with dai.Device(pipeline, device) as device:
     frame = None
 
     pos = {}
-    going_in = 0
-    going_out = 0
+    count_in_out = [0, 0]
     obj_counter = [0, 0, 0, 0]  # left, right, up, down
     image_saved = False
     frame_count = 0
@@ -209,9 +208,7 @@ with dai.Device(pipeline, device) as device:
 
                 try:
                 
-                    counting_people(DOOR_ORIENTATION, centroid, pos, t, obj_counter, going_in, going_out, C_left_boundary, C_right_boundary, C_min, C_max, A_left_boundary, A_right_boundary, A_min, A_max, B_left_boundary, B_right_boundary, B_min, B_max)
-                    
-                    print(f"IN: {going_in}, OUT: {going_out}")    
+                    counting_people(DOOR_ORIENTATION, centroid, pos, t, obj_counter, count_in_out, C_left_boundary, C_right_boundary, C_min, C_max, A_left_boundary, A_right_boundary, A_min, A_max, B_left_boundary, B_right_boundary, B_min, B_max)    
 
                 except:
                     pos[t.id] = {'current': centroid}
@@ -230,12 +227,12 @@ with dai.Device(pipeline, device) as device:
         current_time = time.time()
         if current_time - last_print_time >= 300:
             last_print_time = current_time
-            result = send_to_api(MxID, API, going_in, going_out)
-            print(f"IN: {going_in}, OUT: {going_out}")
+            result = send_to_api(MxID, API, count_in_out[0], count_in_out[1])
+            print(f"IN: {count_in_out[0]}, OUT: {count_in_out[1]}")
             if result == 200:
                 print(f'Data sent successfully, status: {result},  {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}', )
-                going_in = 0
-                going_out = 0
+                count_in_out[0] = 0
+                count_in_out[1] = 0
             else:
                 print(f'Error sending data to the API, status: {result}')
 
