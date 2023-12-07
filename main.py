@@ -225,7 +225,7 @@ with dai.Device(pipeline, device) as device:
                 cv2.circle(frame, (centroid[0], centroid[1]), 4, (255, 255, 255), -1)
 
         current_time = time.time()
-        if current_time - last_print_time >= 300:
+        if current_time - last_print_time >= 60:
             last_print_time = current_time
             result = send_to_api(MxID, API, count_in_out[0], count_in_out[1])
             print(f"IN: {count_in_out[0]}, OUT: {count_in_out[1]}")
