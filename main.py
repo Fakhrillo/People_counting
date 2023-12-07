@@ -209,7 +209,10 @@ with dai.Device(pipeline, device) as device:
 
                 try:
                 
-                    counting_people(DOOR_ORIENTATION, centroid, pos, t, obj_counter, C_left_boundary, C_right_boundary, C_min, C_max, A_left_boundary, A_right_boundary, A_min, A_max, B_left_boundary, B_right_boundary, B_min, B_max)    
+                    counting_people(DOOR_ORIENTATION, centroid, pos, t, obj_counter, C_left_boundary, C_right_boundary, C_min, C_max, A_left_boundary, A_right_boundary, A_min, A_max, B_left_boundary, B_right_boundary, B_min, B_max)
+                    
+                    print(f"IN: {going_in}, OUT: {going_out}")    
+
                 except:
                     pos[t.id] = {'current': centroid}
 
@@ -228,6 +231,7 @@ with dai.Device(pipeline, device) as device:
         if current_time - last_print_time >= 300:
             last_print_time = current_time
             result = send_to_api(MxID, API, going_in, going_out)
+            print(f"IN: {going_in}, OUT: {going_out}")
             if result == 200:
                 print(f'Data sent successfully, status: {result},  {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}', )
                 going_in = 0
@@ -235,8 +239,8 @@ with dai.Device(pipeline, device) as device:
             else:
                 print(f'Error sending data to the API, status: {result}')
 
-        cv2.putText(frame, f'Kirdi: {obj_counter[0]}; Chiqdi: {obj_counter[1]} Xonada bor: {obj_counter[0] - obj_counter[1]}', (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0xFF), 2, cv2.FONT_HERSHEY_SIMPLEX)
-        cv2.putText(frame, "FPS: {:.2f}".format(fps), (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.6, text_color)
+        cv2.putText(frame, f'In: {obj_counter[0]}; Out: {obj_counter[1]} Present: {obj_counter[0] - obj_counter[1]}', (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0xFF), 2, cv2.FONT_HERSHEY_SIMPLEX)
+        cv2.putText(frame, "FPS: {:.2f}".format(fps), (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.6, (255, 0, 0))
 
         # Displaying cropped frame with tracked objects
         cv2.imshow("tracker", frame)
