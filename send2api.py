@@ -6,7 +6,6 @@ def send_to_api(MxID, API, going_in, going_out):
                 'Cam_MxID': MxID,
                 'incoming': going_in,
                 'outgoing': going_out,
-                'present': going_in - going_out,
                 }
         try:
             # Send data to the API

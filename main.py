@@ -120,6 +120,62 @@ with dai.Device(pipeline, device) as device:
     frame_count = 0
     last_print_time = 0
 
+    color = (255, 0, 0)
+    text_color = (0, 0, 255)
+    rectangle = (111, 147, 26)
+
+    # Calculate the buffer zone boundaries
+    if DOOR_ORIENTATION in ["Top", "Bottom"]:
+        A_right_boundary = A_LINE_START_X + 25
+        A_left_boundary = A_LINE_START_X - 25
+        A_max = A_LINE_END_Y
+        A_min = A_LINE_START_Y
+
+        B_right_boundary = B_LINE_START_X +25
+        B_left_boundary = B_LINE_START_X - 25
+        B_max = B_LINE_END_Y
+        B_min = B_LINE_START_Y
+
+        C_right_boundary = C_LINE_START_Y + 25
+        C_left_boundary = C_LINE_START_Y - 25
+        C_max = C_LINE_END_X
+        C_min = C_LINE_START_X
+
+    elif DOOR_ORIENTATION in['Right', 'Left']:
+        A_right_boundary = A_LINE_START_Y + 25
+        A_left_boundary = A_LINE_START_Y - 25
+        A_max = A_LINE_END_X
+        A_min = A_LINE_START_X
+
+        B_right_boundary = B_LINE_START_Y +25
+        B_left_boundary = B_LINE_START_Y - 25
+        B_max = B_LINE_END_X
+        B_min = B_LINE_START_X
+
+        C_right_boundary = C_LINE_START_X + 25
+        C_left_boundary = C_LINE_START_X - 25
+        C_max = C_LINE_END_Y
+        C_min = C_LINE_START_Y
+
+    else:
+        print(f"Door orientation is not supported: {DOOR_ORIENTATION}")
+
+    boundaries = {
+        "A_right_boundary": A_right_boundary,
+        "A_left_boundary": A_left_boundary,
+        "A_max": A_max,
+        "A_min": A_min,
+        "B_right_boundary": B_right_boundary,
+        "B_left_boundary": B_left_boundary,
+        "B_max": B_max,
+        "B_min": B_min,
+        "C_right_boundary": C_right_boundary,
+        "C_left_boundary": C_left_boundary,
+        "C_max": C_max,
+        "C_min": C_min,
+
+    }
+
     while(True):
         imgFrame = preview.get()
         track = tracklets.get()
@@ -130,10 +186,6 @@ with dai.Device(pipeline, device) as device:
             fps = counter / (current_time - startTime)
             counter = 0
             startTime = current_time
-
-        color = (255, 0, 0)
-        text_color = (0, 0, 255)
-        rectangle = (111, 147, 26)
 
         frame = imgFrame.getCvFrame()
         trackletsData = track.tracklets
@@ -159,42 +211,6 @@ with dai.Device(pipeline, device) as device:
         cv2.line(frame, (B_LINE_START_X, B_LINE_START_Y), (B_LINE_END_X, B_LINE_END_Y), (0, 255, 0), 3)
         cv2.line(frame, (C_LINE_START_X, C_LINE_START_Y), (C_LINE_END_X, C_LINE_END_Y), (255, 0, 0), 3)
 
-        # Calculate the buffer zone boundaries
-        if DOOR_ORIENTATION in ["Top", "Bottom"]:
-            A_right_boundary = A_LINE_START_X + 25
-            A_left_boundary = A_LINE_START_X - 25
-            A_max = A_LINE_END_Y
-            A_min = A_LINE_START_Y
-
-            B_right_boundary = B_LINE_START_X +25
-            B_left_boundary = B_LINE_START_X - 25
-            B_max = B_LINE_END_Y
-            B_min = B_LINE_START_Y
-
-            C_right_boundary = C_LINE_START_Y + 25
-            C_left_boundary = C_LINE_START_Y - 25
-            C_max = C_LINE_END_X
-            C_min = C_LINE_START_X
-
-        elif DOOR_ORIENTATION in['Right', 'Left']:
-            A_right_boundary = A_LINE_START_Y + 25
-            A_left_boundary = A_LINE_START_Y - 25
-            A_max = A_LINE_END_X
-            A_min = A_LINE_START_X
-
-            B_right_boundary = B_LINE_START_Y +25
-            B_left_boundary = B_LINE_START_Y - 25
-            B_max = B_LINE_END_X
-            B_min = B_LINE_START_X
-
-            C_right_boundary = C_LINE_START_X + 25
-            C_left_boundary = C_LINE_START_X - 25
-            C_max = C_LINE_END_Y
-            C_min = C_LINE_START_Y
-
-        else:
-            print(f"Door orientation is not supported: {DOOR_ORIENTATION}")
-
         for t in trackletsData:
             if t.status.name == "TRACKED":
                 roi = t.roi.denormalize(frame.shape[1], frame.shape[0])
@@ -207,7 +223,7 @@ with dai.Device(pipeline, device) as device:
                 centroid = (int((x2-x1)/2+x1), int((y2-y1)/2+y1))
 
                 try:
-                
+                    
                     counting_people(DOOR_ORIENTATION, centroid, pos, t, obj_counter, count_in_out, C_left_boundary, C_right_boundary, C_min, C_max, A_left_boundary, A_right_boundary, A_min, A_max, B_left_boundary, B_right_boundary, B_min, B_max)    
 
                 except:
@@ -225,7 +241,7 @@ with dai.Device(pipeline, device) as device:
                 cv2.circle(frame, (centroid[0], centroid[1]), 4, (255, 255, 255), -1)
 
         current_time = time.time()
-        if current_time - last_print_time >= 60:
+        if current_time - last_print_time >= 300:
             last_print_time = current_time
             result = send_to_api(MxID, API, count_in_out[0], count_in_out[1])
             print(f"IN: {count_in_out[0]}, OUT: {count_in_out[1]}")
