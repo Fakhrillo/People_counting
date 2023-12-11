@@ -3,11 +3,12 @@ import cv2
 import depthai as dai
 import time
 from environs import Env
-from threading import Thread
+import numpy as np
+
+def to_planar(arr, shape=(300, 300)):
+    return cv2.resize(arr, shape).transpose(2, 0, 1).flatten()
 
 from count import *
-from send2api import *
-from http_streaming import server_HTTP
 
 env = Env()
 env.read_env()
@@ -81,21 +82,24 @@ objectTracker.setTrackerType(dai.TrackerType.ZERO_TERM_COLOR_HISTOGRAM)
 objectTracker.setTrackerIdAssignmentPolicy(dai.TrackerIdAssignmentPolicy.UNIQUE_ID)
 
 # Linking
-camRgb.preview.link(detectionNetwork.input)
-objectTracker.passthroughTrackerFrame.link(xlinkOut.input)
+videoFrame = pipeline.create(dai.node.VideoFrame)
+camRgb.preview.link(videoFrame.input)
+videoFrame.out.link(detectionNetwork.input)
 
+objectTracker.passthroughTrackerFrame.link(xlinkOut.input)
 detectionNetwork.passthrough.link(objectTracker.inputTrackerFrame)
 detectionNetwork.passthrough.link(objectTracker.inputDetectionFrame)
 detectionNetwork.out.link(objectTracker.inputDetections)
 objectTracker.out.link(trackerOut.input)
 
-device = dai.DeviceInfo(MxID)
+device_id = dai.DeviceInfo(MxID)
 
-print(device)
+print(device_id)
 
 # Connecting to device and starting pipeline
-with dai.Device(pipeline, device):
-    preview = device.getOutputQueue("preview", 4, False)
+with dai.Device(pipeline, device_id) as device:
+    # Get the output queues
+    videoQueue = device.getOutputQueue("preview", 4, False)
     tracklets = device.getOutputQueue("tracklets", 4, False)
 
     startTime = time.monotonic()
@@ -171,12 +175,11 @@ with dai.Device(pipeline, device):
             print("End of video.")
             break
 
-        imgFrame = dai.ImgFrame()
-        imgFrame.setData(to_planar(frame))
-        imgFrame.setType(dai.ImgFrame.Type.BGR888p)
-        imgFrame.setWidth(640)
-        imgFrame.setHeight(640)
-        preview.send(imgFrame)
+        videoFrame.setTimestamp(time.monotonic())
+        videoFrame.setWidth(640)
+        videoFrame.setHeight(640)
+        videoFrame.setData(to_planar(frame))
+        videoQueue.send(videoFrame)
 
         track = tracklets.get()
 
@@ -188,18 +191,6 @@ with dai.Device(pipeline, device):
             startTime = current_time
 
         trackletsData = track.tracklets
-
-        # Send the image to the API after processing a certain number of frames
-        if not image_saved and frame_count >= 25:
-            # Start a new thread for sending the image
-            send_thread = Thread(target=send_image_to_api, args=(API, frame.copy(), MxID))
-            send_thread.start()
-
-            # Continue processing the next frame
-            image_saved = True
-
-        if frame_count <= 30:
-            frame_count += 1
 
         # Draw the counting line on the frame
         cv2.line(frame, (A_LINE_START_X, A_LINE_START_Y), (A_LINE_END_X, A_LINE_END_Y), (0, 0, 255), 3)
@@ -228,24 +219,11 @@ with dai.Device(pipeline, device):
                 cv2.rectangle(frame, (x1, y1), (x2, y2), rectangle, cv2.FONT_HERSHEY_SIMPLEX)
                 cv2.circle(frame, (centroid[0], centroid[1]), 4, (255, 255, 255), -1)
 
-        current_time = time.time()
-        if current_time - last_print_time >= 300:
-            last_print_time = current_time
-            result = send_data_to_api(MxID, API, count_in_out[0], count_in_out[1])
-            print(f"IN: {count_in_out[0]}, OUT: {count_in_out[1]}")
-            if result == 200:
-                print(f'Data sent successfully, status: {result},  {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}', )
-                count_in_out[0] = 0
-                count_in_out[1] = 0
-            else:
-                print(f'Error sending data to the API, status: {result}')
-
         cv2.putText(frame, f'In: {obj_counter[0]}; Out: {obj_counter[1]} Present: {obj_counter[0] - obj_counter[1]}', (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0xFF), 2, cv2.FONT_HERSHEY_SIMPLEX)
         cv2.putText(frame, "FPS: {:.2f}".format(fps), (2, frame.shape[0] - 10), cv2.FONT_HERSHEY_TRIPLEX, 0.6, (255, 0, 0))
 
         # Displaying cropped frame with tracked objects
         cv2.imshow("tracker", frame)
-        server_HTTP.frametosend = frame
 
         if cv2.waitKey(1) == ord('q'):
             break
