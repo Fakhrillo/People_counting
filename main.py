@@ -2,11 +2,11 @@ from pathlib import Path
 import cv2
 import depthai as dai
 import time
-import requests
 from environs import Env
+from threading import Thread
 
 from count import *
-from send2api import send_to_api
+from send2api import *
 from http_streaming import server_HTTP
 
 env = Env()
@@ -78,7 +78,7 @@ detectionNetwork.input.setBlocking(False)
 
 objectTracker.setDetectionLabelsToTrack([0])  # track only person
 # possible tracking types: ZERO_TERM_COLOR_HISTOGRAM, ZERO_TERM_IMAGELESS, SHORT_TERM_IMAGELESS, SHORT_TERM_KCF
-objectTracker.setTrackerType(dai.TrackerType.ZERO_TERM_COLOR_HISTOGRAM)
+objectTracker.setTrackerType(dai.TrackerType.SHORT_TERM_IMAGELESS)
 # take the smallest ID when new object is tracked, possible options: SMALLEST_ID, UNIQUE_ID
 objectTracker.setTrackerIdAssignmentPolicy(dai.TrackerIdAssignmentPolicy.UNIQUE_ID)
 
@@ -184,16 +184,12 @@ with dai.Device(pipeline, device) as device:
 
         # Send the image to the API after processing a certain number of frames
         if not image_saved and frame_count >= 25:
-            api_url = f"{API}/camera/photo/{MxID}"
-            _, img_encoded = cv2.imencode('.jpg', frame)  # Encode the image as JPEG
-            response = requests.post(api_url, files={'image': (f'{MxID}.jpg', img_encoded.tobytes(), 'image/jpeg')})
+            # Start a new thread for sending the image
+            send_thread = Thread(target=send_image_to_api, args=(API, frame.copy(), MxID))
+            send_thread.start()
 
-            # Check the response from the API
-            if response.status_code == 200:
-                print('Image sent successfully')
-                image_saved = True
-            else:
-                print('Error sending image to the API, status:', response.status_code)
+        # Continue processing the next frame
+        image_saved = True
 
         if frame_count <= 30:
             frame_count += 1
@@ -229,7 +225,7 @@ with dai.Device(pipeline, device) as device:
         current_time = time.time()
         if current_time - last_print_time >= 300:
             last_print_time = current_time
-            result = send_to_api(MxID, API, count_in_out[0], count_in_out[1])
+            result = send_data_to_api(MxID, API, count_in_out[0], count_in_out[1])
             print(f"IN: {count_in_out[0]}, OUT: {count_in_out[1]}")
             if result == 200:
                 print(f'Data sent successfully, status: {result},  {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}', )
