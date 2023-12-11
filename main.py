@@ -188,8 +188,8 @@ with dai.Device(pipeline, device) as device:
             send_thread = Thread(target=send_image_to_api, args=(API, frame.copy(), MxID))
             send_thread.start()
 
-        # Continue processing the next frame
-        image_saved = True
+            # Continue processing the next frame
+            image_saved = True
 
         if frame_count <= 30:
             frame_count += 1
