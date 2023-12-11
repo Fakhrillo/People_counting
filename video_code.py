@@ -17,28 +17,30 @@ API = env('API')
 
 from config import (
     DOOR_ORIENTATION,
-
     A_LINE_START_X,
     A_LINE_START_Y,
-    
     A_LINE_END_X,
     A_LINE_END_Y,
-
     B_LINE_START_X,
     B_LINE_START_Y,
-
     B_LINE_END_X,
     B_LINE_END_Y,
-
     C_LINE_START_X,
     C_LINE_START_Y,
-
     C_LINE_END_X,
     C_LINE_END_Y,
 )
 
 nnPath = str((Path(__file__).parent / Path('model/yolov6n_coco_640x640_openvino_2022.1_6shave.blob')).resolve().absolute())
-# nnPath = str((Path(__file__).parent / Path('model/yolov6_head_openvino_2022.1_6shave.blob')).resolve().absolute())
+
+# Create a VideoCapture object
+video_path = 'test.mp4'  # Replace with the path to your video file
+cap = cv2.VideoCapture(video_path)
+
+# Check if the video file is opened successfully
+if not cap.isOpened():
+    print("Error: Couldn't open the video file.")
+    exit()
 
 # Creating pipeline
 pipeline = dai.Pipeline()
@@ -48,7 +50,7 @@ camRgb = pipeline.create(dai.node.ColorCamera)
 detectionNetwork = pipeline.create(dai.node.YoloDetectionNetwork)
 objectTracker = pipeline.create(dai.node.ObjectTracker)
 
-xlinkOut   = pipeline.create(dai.node.XLinkOut)
+xlinkOut = pipeline.create(dai.node.XLinkOut)
 trackerOut = pipeline.create(dai.node.XLinkOut)
 
 xlinkOut.setStreamName("preview")
@@ -67,9 +69,7 @@ camRgb.setFps(40)
 detectionNetwork.setConfidenceThreshold(0.5)
 detectionNetwork.setNumClasses(80)
 detectionNetwork.setCoordinateSize(4)
-# detectionNetwork.setAnchors([10, 14, 23, 27, 37, 58, 81, 82, 135, 169, 344, 319]) #for YOLOv4
-# detectionNetwork.setAnchorMasks({"side26": [1, 2, 3], "side13": [3, 4, 5]})
-detectionNetwork.setAnchors([10,13, 16,30, 33,23, 30,61, 62,45, 59,119, 116,90, 156,198, 373,326]) #for YOLOv5
+detectionNetwork.setAnchors([10,13, 16,30, 33,23, 30,61, 62,45, 59,119, 116,90, 156,198, 373,326])
 detectionNetwork.setAnchorMasks({"side52": [0,1,2], "side26": [3,4,5], "side13": [6,7,8]})
 detectionNetwork.setIouThreshold(0.5)
 detectionNetwork.setBlobPath(nnPath)
@@ -77,17 +77,14 @@ detectionNetwork.setNumInferenceThreads(2)
 detectionNetwork.input.setBlocking(False)
 
 objectTracker.setDetectionLabelsToTrack([0])  # track only person
-# possible tracking types: ZERO_TERM_COLOR_HISTOGRAM, ZERO_TERM_IMAGELESS, SHORT_TERM_IMAGELESS, SHORT_TERM_KCF
 objectTracker.setTrackerType(dai.TrackerType.ZERO_TERM_COLOR_HISTOGRAM)
-# take the smallest ID when new object is tracked, possible options: SMALLEST_ID, UNIQUE_ID
 objectTracker.setTrackerIdAssignmentPolicy(dai.TrackerIdAssignmentPolicy.UNIQUE_ID)
 
-#Linking
+# Linking
 camRgb.preview.link(detectionNetwork.input)
 objectTracker.passthroughTrackerFrame.link(xlinkOut.input)
 
 detectionNetwork.passthrough.link(objectTracker.inputTrackerFrame)
-
 detectionNetwork.passthrough.link(objectTracker.inputDetectionFrame)
 detectionNetwork.out.link(objectTracker.inputDetections)
 objectTracker.out.link(trackerOut.input)
@@ -97,8 +94,7 @@ device = dai.DeviceInfo(MxID)
 print(device)
 
 # Connecting to device and starting pipeline
-with dai.Device(pipeline, device) as device:
-
+with dai.Device(pipeline, device):
     preview = device.getOutputQueue("preview", 4, False)
     tracklets = device.getOutputQueue("tracklets", 4, False)
 
@@ -168,18 +164,29 @@ with dai.Device(pipeline, device) as device:
 
     counting_people = get_count_function(DOOR_ORIENTATION)
 
-    while(True):
-        imgFrame = preview.get()
+    while(cap.isOpened()):
+        ret, frame = cap.read()
+
+        if not ret:
+            print("End of video.")
+            break
+
+        imgFrame = dai.ImgFrame()
+        imgFrame.setData(to_planar(frame))
+        imgFrame.setType(dai.ImgFrame.Type.BGR888p)
+        imgFrame.setWidth(640)
+        imgFrame.setHeight(640)
+        preview.send(imgFrame)
+
         track = tracklets.get()
 
-        counter+=1
+        counter += 1
         current_time = time.monotonic()
-        if (current_time - startTime) > 1 :
+        if (current_time - startTime) > 1:
             fps = counter / (current_time - startTime)
             counter = 0
             startTime = current_time
 
-        frame = imgFrame.getCvFrame()
         trackletsData = track.tracklets
 
         # Send the image to the API after processing a certain number of frames
@@ -211,8 +218,7 @@ with dai.Device(pipeline, device) as device:
                 centroid = (int((x2-x1)/2+x1), int((y2-y1)/2+y1))
 
                 try:
-                    
-                    counting_people(centroid, pos, t, obj_counter, count_in_out, C_left_boundary, C_right_boundary, C_min, C_max, A_left_boundary, A_right_boundary, A_min, A_max, B_left_boundary, B_right_boundary, B_min, B_max)    
+                    counting_people(centroid, pos, t, obj_counter, count_in_out, C_left_boundary, C_right_boundary, C_min, C_max, A_left_boundary, A_right_boundary, A_min, A_max, B_left_boundary, B_right_boundary, B_min, B_max)
 
                 except:
                     pos[t.id] = {'current': centroid}
@@ -243,3 +249,6 @@ with dai.Device(pipeline, device) as device:
 
         if cv2.waitKey(1) == ord('q'):
             break
+
+# Release the video capture object
+cap.release()
