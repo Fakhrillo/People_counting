@@ -5,9 +5,6 @@ import time
 from environs import Env
 import numpy as np
 
-def to_planar(arr, shape=(300, 300)):
-    return cv2.resize(arr, shape).transpose(2, 0, 1).flatten()
-
 from count import *
 
 env = Env()
@@ -18,59 +15,69 @@ API = env('API')
 
 from config import (
     DOOR_ORIENTATION,
+
     A_LINE_START_X,
     A_LINE_START_Y,
+    
     A_LINE_END_X,
     A_LINE_END_Y,
+
     B_LINE_START_X,
     B_LINE_START_Y,
+
     B_LINE_END_X,
     B_LINE_END_Y,
+
     C_LINE_START_X,
     C_LINE_START_Y,
+
     C_LINE_END_X,
     C_LINE_END_Y,
 )
 
 nnPath = str((Path(__file__).parent / Path('model/yolov6n_coco_640x640_openvino_2022.1_6shave.blob')).resolve().absolute())
+# nnPath = str((Path(__file__).parent / Path('model/yolov6_head_openvino_2022.1_6shave.blob')).resolve().absolute())
 
-# Create a VideoCapture object
-video_path = 'test.mp4'  # Replace with the path to your video file
-cap = cv2.VideoCapture(video_path)
-
-# Check if the video file is opened successfully
-if not cap.isOpened():
-    print("Error: Couldn't open the video file.")
-    exit()
+videoPath = str((Path(__file__).parent / Path('test.mp4')).resolve().absolute())
 
 # Creating pipeline
 pipeline = dai.Pipeline()
 
 # Sources and outputs
-camRgb = pipeline.create(dai.node.ColorCamera)
+manip = pipeline.create(dai.node.ImageManip)
+
 detectionNetwork = pipeline.create(dai.node.YoloDetectionNetwork)
 objectTracker = pipeline.create(dai.node.ObjectTracker)
 
-xlinkOut = pipeline.create(dai.node.XLinkOut)
+manipOut = pipeline.create(dai.node.XLinkOut)
+xinFrame = pipeline.create(dai.node.XLinkIn)
+xlinkOut   = pipeline.create(dai.node.XLinkOut)
 trackerOut = pipeline.create(dai.node.XLinkOut)
+nnOut = pipeline.create(dai.node.XLinkOut)
 
-xlinkOut.setStreamName("preview")
+manipOut.setStreamName("manip")
+xinFrame.setStreamName("inFrame")
+xlinkOut.setStreamName("trackerFrame")
 trackerOut.setStreamName("tracklets")
+nnOut.setStreamName("nn")
 
 # Properties
-if MxID == "14442C10C1AD3FD700":
-    camRgb.setImageOrientation(dai.CameraImageOrientation.HORIZONTAL_MIRROR)
-camRgb.setPreviewSize(640, 640)
-camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
-camRgb.setInterleaved(False)
-camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
-camRgb.setFps(40)
+xinFrame.setMaxDataSize(1920*1080*3)
+
+manip.initialConfig.setResizeThumbnail(640, 640)
+# manip.initialConfig.setResize(384, 384)
+# manip.initialConfig.setKeepAspectRatio(False) #squash the image to not lose FOV
+# The NN model expects BGR input. By default ImageManip output type would be same as input (gray in this case)
+manip.initialConfig.setFrameType(dai.ImgFrame.Type.BGR888p)
+manip.inputImage.setBlocking(True)
 
 # Network specific settings
 detectionNetwork.setConfidenceThreshold(0.5)
 detectionNetwork.setNumClasses(80)
 detectionNetwork.setCoordinateSize(4)
-detectionNetwork.setAnchors([10,13, 16,30, 33,23, 30,61, 62,45, 59,119, 116,90, 156,198, 373,326])
+# detectionNetwork.setAnchors([10, 14, 23, 27, 37, 58, 81, 82, 135, 169, 344, 319]) #for YOLOv4
+# detectionNetwork.setAnchorMasks({"side26": [1, 2, 3], "side13": [3, 4, 5]})
+detectionNetwork.setAnchors([10,13, 16,30, 33,23, 30,61, 62,45, 59,119, 116,90, 156,198, 373,326]) #for YOLOv5
 detectionNetwork.setAnchorMasks({"side52": [0,1,2], "side26": [3,4,5], "side13": [6,7,8]})
 detectionNetwork.setIouThreshold(0.5)
 detectionNetwork.setBlobPath(nnPath)
@@ -78,29 +85,34 @@ detectionNetwork.setNumInferenceThreads(2)
 detectionNetwork.input.setBlocking(False)
 
 objectTracker.setDetectionLabelsToTrack([0])  # track only person
+# possible tracking types: ZERO_TERM_COLOR_HISTOGRAM, ZERO_TERM_IMAGELESS, SHORT_TERM_IMAGELESS, SHORT_TERM_KCF
 objectTracker.setTrackerType(dai.TrackerType.ZERO_TERM_COLOR_HISTOGRAM)
+# take the smallest ID when new object is tracked, possible options: SMALLEST_ID, UNIQUE_ID
 objectTracker.setTrackerIdAssignmentPolicy(dai.TrackerIdAssignmentPolicy.UNIQUE_ID)
 
-# Linking
-videoFrame = pipeline.create(dai.node.VideoFrame)
-camRgb.preview.link(videoFrame.input)
-videoFrame.out.link(detectionNetwork.input)
-
-objectTracker.passthroughTrackerFrame.link(xlinkOut.input)
-detectionNetwork.passthrough.link(objectTracker.inputTrackerFrame)
-detectionNetwork.passthrough.link(objectTracker.inputDetectionFrame)
+#Linking
+manip.out.link(manipOut.input)
+manip.out.link(detectionNetwork.input)
+xinFrame.out.link(manip.inputImage)
+xinFrame.out.link(objectTracker.inputTrackerFrame)
+detectionNetwork.out.link(nnOut.input)
 detectionNetwork.out.link(objectTracker.inputDetections)
+detectionNetwork.passthrough.link(objectTracker.inputDetectionFrame)
 objectTracker.out.link(trackerOut.input)
+objectTracker.passthroughTrackerFrame.link(xlinkOut.input)
 
-device_id = dai.DeviceInfo(MxID)
+device = dai.DeviceInfo(MxID)
 
-print(device_id)
+print(device)
 
 # Connecting to device and starting pipeline
-with dai.Device(pipeline, device_id) as device:
-    # Get the output queues
-    videoQueue = device.getOutputQueue("preview", 4, False)
-    tracklets = device.getOutputQueue("tracklets", 4, False)
+with dai.Device(pipeline, device) as device:
+
+    qIn = device.getInputQueue(name="inFrame")
+    trackerFrameQ = device.getOutputQueue(name="trackerFrame", maxSize=4)
+    tracklets = device.getOutputQueue(name="tracklets", maxSize=4)
+    qManip = device.getOutputQueue(name="manip", maxSize=4)
+    qDet = device.getOutputQueue(name="nn", maxSize=4)
 
     startTime = time.monotonic()
     counter = 0
@@ -110,13 +122,13 @@ with dai.Device(pipeline, device_id) as device:
     pos = {}
     count_in_out = [0, 0]
     obj_counter = [0, 0, 0, 0]  # left, right, up, down
-    image_saved = False
-    frame_count = 0
-    last_print_time = 0
 
     color = (255, 0, 0)
     text_color = (0, 0, 255)
     rectangle = (111, 147, 26)
+
+    def to_planar(arr: np.ndarray, shape: tuple) -> np.ndarray:
+        return cv2.resize(arr, shape).transpose(2, 0, 1).flatten()
 
     # Calculate the buffer zone boundaries
     if DOOR_ORIENTATION in ["Top", "Bottom"]:
@@ -168,28 +180,21 @@ with dai.Device(pipeline, device_id) as device:
 
     counting_people = get_count_function(DOOR_ORIENTATION)
 
-    while(cap.isOpened()):
-        ret, frame = cap.read()
+    cap = cv2.VideoCapture(videoPath)
 
-        if not ret:
-            print("End of video.")
-            break
-
-        videoFrame.setTimestamp(time.monotonic())
-        videoFrame.setWidth(640)
-        videoFrame.setHeight(640)
-        videoFrame.setData(to_planar(frame))
-        videoQueue.send(videoFrame)
-
+    while cap.isOpened():
         track = tracklets.get()
 
-        counter += 1
+        counter+=1
         current_time = time.monotonic()
-        if (current_time - startTime) > 1:
+        if (current_time - startTime) > 1 :
             fps = counter / (current_time - startTime)
             counter = 0
             startTime = current_time
 
+        read_correctly, frame = cap.read()
+        if not read_correctly:
+            break
         trackletsData = track.tracklets
 
         # Draw the counting line on the frame
@@ -209,7 +214,8 @@ with dai.Device(pipeline, device_id) as device:
                 centroid = (int((x2-x1)/2+x1), int((y2-y1)/2+y1))
 
                 try:
-                    counting_people(centroid, pos, t, obj_counter, count_in_out, C_left_boundary, C_right_boundary, C_min, C_max, A_left_boundary, A_right_boundary, A_min, A_max, B_left_boundary, B_right_boundary, B_min, B_max)
+                    
+                    counting_people(centroid, pos, t, obj_counter, count_in_out, C_left_boundary, C_right_boundary, C_min, C_max, A_left_boundary, A_right_boundary, A_min, A_max, B_left_boundary, B_right_boundary, B_min, B_max)    
 
                 except:
                     pos[t.id] = {'current': centroid}
@@ -227,6 +233,3 @@ with dai.Device(pipeline, device_id) as device:
 
         if cv2.waitKey(1) == ord('q'):
             break
-
-# Release the video capture object
-cap.release()
