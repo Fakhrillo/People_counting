@@ -4,9 +4,8 @@ import depthai as dai
 import time
 import requests
 from environs import Env
-import numpy as np
 
-from count import counting_people
+from count import *
 from send2api import send_to_api
 from http_streaming import server_HTTP
 
@@ -14,7 +13,6 @@ env = Env()
 env.read_env()
 
 MxID = env('MxID')
-# IP = env('IP')
 API = env('API')
 
 from config import (
@@ -38,9 +36,6 @@ from config import (
     C_LINE_END_X,
     C_LINE_END_Y,
 )
-
-# tiny yolo v4 label texts
-labelMap = ["person",]
 
 nnPath = str((Path(__file__).parent / Path('model/yolov6n_coco_640x640_openvino_2022.1_6shave.blob')).resolve().absolute())
 # nnPath = str((Path(__file__).parent / Path('model/yolov6_head_openvino_2022.1_6shave.blob')).resolve().absolute())
@@ -98,7 +93,6 @@ detectionNetwork.out.link(objectTracker.inputDetections)
 objectTracker.out.link(trackerOut.input)
 
 device = dai.DeviceInfo(MxID)
-# device = dai.DeviceInfo(IP)
 
 print(device)
 
@@ -160,21 +154,19 @@ with dai.Device(pipeline, device) as device:
     else:
         print(f"Door orientation is not supported: {DOOR_ORIENTATION}")
 
-    boundaries = {
-        "A_right_boundary": A_right_boundary,
-        "A_left_boundary": A_left_boundary,
-        "A_max": A_max,
-        "A_min": A_min,
-        "B_right_boundary": B_right_boundary,
-        "B_left_boundary": B_left_boundary,
-        "B_max": B_max,
-        "B_min": B_min,
-        "C_right_boundary": C_right_boundary,
-        "C_left_boundary": C_left_boundary,
-        "C_max": C_max,
-        "C_min": C_min,
+    def get_count_function(orientation):
+        if orientation == 'Top':
+            return door_top
+        elif orientation == 'Bottom':
+            return door_bottom
+        elif orientation == 'Right':
+            return door_right
+        elif orientation == 'Left':
+            return door_left
+        else:
+            raise ValueError("Invalid orientation")
 
-    }
+    counting_people = get_count_function(DOOR_ORIENTATION)
 
     while(True):
         imgFrame = preview.get()
@@ -224,19 +216,13 @@ with dai.Device(pipeline, device) as device:
 
                 try:
                     
-                    counting_people(DOOR_ORIENTATION, centroid, pos, t, obj_counter, count_in_out, C_left_boundary, C_right_boundary, C_min, C_max, A_left_boundary, A_right_boundary, A_min, A_max, B_left_boundary, B_right_boundary, B_min, B_max)    
+                    counting_people(centroid, pos, t, obj_counter, count_in_out, C_left_boundary, C_right_boundary, C_min, C_max, A_left_boundary, A_right_boundary, A_min, A_max, B_left_boundary, B_right_boundary, B_min, B_max)    
 
                 except:
                     pos[t.id] = {'current': centroid}
 
-                try:
-                    label = labelMap[t.label]
-                except:
-                    label = t.label
-
-                cv2.putText(frame, str(label), (x1 + 10, y1 + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, text_color)
-                cv2.putText(frame, f"ID: {[t.id]}", (x1 + 10, y1 + 45), cv2.FONT_HERSHEY_TRIPLEX, 0.5, text_color)
-                cv2.putText(frame, t.status.name, (x1 + 10, y1 + 70), cv2.FONT_HERSHEY_TRIPLEX, 0.5, text_color)
+                cv2.putText(frame, f"ID: {[t.id]}", (x1 + 10, y1 + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, text_color)
+                cv2.putText(frame, t.status.name, (x1 + 10, y1 + 45), cv2.FONT_HERSHEY_TRIPLEX, 0.5, text_color)
                 cv2.rectangle(frame, (x1, y1), (x2, y2), rectangle, cv2.FONT_HERSHEY_SIMPLEX)
                 cv2.circle(frame, (centroid[0], centroid[1]), 4, (255, 255, 255), -1)
 
