@@ -33,6 +33,10 @@ def get_configurations():
     get_token(username=env("USERNAME", password=env("PASSWORD")))
     headers = {'Authorization': f'Bearer {jwt_access_token}'}
     response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+         print("Got configurations successfully")
+    else:
+         print(f"error: {response.status_code}")
     return response.json()
 
 try:    
