@@ -37,8 +37,8 @@ from config import (
     C_LINE_END_Y,
 )
 
-nnPath = str((Path(__file__).parent / Path('model/yolov6n_coco_640x640_openvino_2022.1_6shave.blob')).resolve().absolute())
-# nnPath = str((Path(__file__).parent / Path('model/yolov6_head_openvino_2022.1_6shave.blob')).resolve().absolute())
+# nnPath = str((Path(__file__).parent / Path('model/yolov6n_coco_640x640_openvino_2022.1_6shave.blob')).resolve().absolute())
+nnPath = str((Path(__file__).parent / Path('model/Yolov6n_100epoch_openvino_2022.1_6shave.blob')).resolve().absolute())
 
 # Creating pipeline
 pipeline = dai.Pipeline()
@@ -64,7 +64,7 @@ camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
 
 # Network specific settings
 detectionNetwork.setConfidenceThreshold(0.5)
-detectionNetwork.setNumClasses(80)
+detectionNetwork.setNumClasses(2)
 detectionNetwork.setCoordinateSize(4)
 # detectionNetwork.setAnchors([10, 14, 23, 27, 37, 58, 81, 82, 135, 169, 344, 319]) #for YOLOv4
 # detectionNetwork.setAnchorMasks({"side26": [1, 2, 3], "side13": [3, 4, 5]})
@@ -75,7 +75,7 @@ detectionNetwork.setBlobPath(nnPath)
 detectionNetwork.setNumInferenceThreads(2)
 detectionNetwork.input.setBlocking(False)
 
-objectTracker.setDetectionLabelsToTrack([0])  # track only person
+objectTracker.setDetectionLabelsToTrack([1])  # track only person
 # possible tracking types: ZERO_TERM_COLOR_HISTOGRAM, ZERO_TERM_IMAGELESS, SHORT_TERM_IMAGELESS, SHORT_TERM_KCF
 objectTracker.setTrackerType(dai.TrackerType.ZERO_TERM_COLOR_HISTOGRAM)
 # take the smallest ID when new object is tracked, possible options: SMALLEST_ID, UNIQUE_ID
@@ -92,8 +92,6 @@ detectionNetwork.out.link(objectTracker.inputDetections)
 objectTracker.out.link(trackerOut.input)
 
 device = dai.DeviceInfo(MxID)
-
-print(device)
 
 # Connecting to device and starting pipeline
 with dai.Device(pipeline, device) as device:
@@ -116,37 +114,38 @@ with dai.Device(pipeline, device) as device:
     color = (255, 0, 0)
     text_color = (0, 0, 255)
     rectangle = (111, 147, 26)
+    boundary = 40
 
     # Calculate the buffer zone boundaries
     if DOOR_ORIENTATION in ["Top", "Bottom"]:
-        A_right_boundary = A_LINE_START_X + 25
-        A_left_boundary = A_LINE_START_X - 25
+        A_right_boundary = A_LINE_START_X + boundary
+        A_left_boundary = A_LINE_START_X - boundary
         A_max = A_LINE_END_Y
         A_min = A_LINE_START_Y
 
-        B_right_boundary = B_LINE_START_X +25
-        B_left_boundary = B_LINE_START_X - 25
+        B_right_boundary = B_LINE_START_X + boundary
+        B_left_boundary = B_LINE_START_X - boundary
         B_max = B_LINE_END_Y
         B_min = B_LINE_START_Y
 
-        C_right_boundary = C_LINE_START_Y + 25
-        C_left_boundary = C_LINE_START_Y - 25
+        C_right_boundary = C_LINE_START_Y + boundary
+        C_left_boundary = C_LINE_START_Y - boundary
         C_max = C_LINE_END_X
         C_min = C_LINE_START_X
 
     elif DOOR_ORIENTATION in['Right', 'Left']:
-        A_right_boundary = A_LINE_START_Y + 25
-        A_left_boundary = A_LINE_START_Y - 25
+        A_right_boundary = A_LINE_START_Y + boundary
+        A_left_boundary = A_LINE_START_Y - boundary
         A_max = A_LINE_END_X
         A_min = A_LINE_START_X
 
-        B_right_boundary = B_LINE_START_Y +25
-        B_left_boundary = B_LINE_START_Y - 25
+        B_right_boundary = B_LINE_START_Y + boundary
+        B_left_boundary = B_LINE_START_Y - boundary
         B_max = B_LINE_END_X
         B_min = B_LINE_START_X
 
-        C_right_boundary = C_LINE_START_X + 25
-        C_left_boundary = C_LINE_START_X - 25
+        C_right_boundary = C_LINE_START_X + boundary
+        C_left_boundary = C_LINE_START_X - boundary
         C_max = C_LINE_END_Y
         C_min = C_LINE_START_Y
 
