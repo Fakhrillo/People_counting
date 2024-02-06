@@ -8,7 +8,7 @@ env.read_env()
 jwt_access_token = None
 
 def get_token():
-        API = env("API_URL")
+        API = env("API")
         global jwt_access_token
         token_endpoint = f'{API}/auth/token/'
         data = {
