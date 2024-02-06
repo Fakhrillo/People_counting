@@ -8,31 +8,10 @@ MxID = env('MxID')
 API = env('API')
 
 url = API + f"/camera/conf/{MxID}/"
-jwt_access_token = None
 
-def get_token(username, password):
-        API = env("API")
-        global jwt_access_token
-        token_endpoint = f'{API}/auth/token/'
-        data = {
-            'username': username,
-            'password': password,
-        }
-        try:
-            response = requests.post(token_endpoint, data=data)
-            if response.status_code == 200:
-                jwt_access_token = response.json().get('access')
-                print("Token got successfully.")
-            else:
-                print(f"Token get failed with status code {response.status_code}")
-        except Exception as e:
-            print(f"Error getting token: {e}")
 
 def get_configurations():
-    global jwt_access_token
-    get_token(username=env("USERNAME", password=env("PASSWORD")))
-    headers = {'Authorization': f'Bearer {jwt_access_token}'}
-    response = requests.get(url, headers=headers)
+    response = requests.get(url)
     if response.status_code == 200:
          print("Got configurations successfully")
     else:
