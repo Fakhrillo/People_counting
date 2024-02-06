@@ -11,7 +11,7 @@ url = API + f"/camera/conf/{MxID}/"
 jwt_access_token = None
 
 def get_token(username, password):
-        API = env("API_URL")
+        API = env("API")
         global jwt_access_token
         token_endpoint = f'{API}/auth/token/'
         data = {
