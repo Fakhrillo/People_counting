@@ -165,6 +165,7 @@ with dai.Device(pipeline, device) as device:
             raise ValueError("Invalid orientation")
 
     counting_people = get_count_function(DOOR_ORIENTATION)
+    startingTime = time.strftime("%Y-%m-%d %H:%M", time.localtime())
 
     while(True):
         imgFrame = preview.get()
@@ -233,6 +234,7 @@ with dai.Device(pipeline, device) as device:
                 print(f'Error sending data to the API, status: {result}')
 
         cv2.putText(frame, f'In: {obj_counter[0]}; Out: {obj_counter[1]} Present: {obj_counter[0] - obj_counter[1]}', (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0xFF), 2, cv2.FONT_HERSHEY_SIMPLEX)
+        cv2.putText(frame, f"ST: {startingTime}", (frame.shape[1] - 300, 35), cv2.FONT_HERSHEY_TRIPLEX, 0.7, (0, 255, 0))
         cv2.putText(frame, "FPS: {:.2f}".format(fps), (2, frame.shape[0] - 10), cv2.FONT_HERSHEY_TRIPLEX, 0.6, (255, 0, 0))
 
         # Displaying cropped frame with tracked objects
