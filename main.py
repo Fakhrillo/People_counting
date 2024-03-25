@@ -239,7 +239,7 @@ with dai.Device(pipeline, device) as device:
 
         # Displaying cropped frame with tracked objects
         cv2.imshow("tracker", frame)
-        server_HTTP.frametosend = frame
+        # server_HTTP.frametosend = frame
 
         if cv2.waitKey(1) == ord('q'):
             break
