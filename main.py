@@ -7,7 +7,7 @@ from threading import Thread
 
 from count import *
 from send2api import *
-from http_streaming import server_HTTP
+# from http_streaming import server_HTTP
 
 env = Env()
 env.read_env()
